@@ -1,4 +1,4 @@
-module micro-library
+module github.com/lifenglin/micro-library
 
 go 1.13
 
