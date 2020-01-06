@@ -1,8 +1,8 @@
 package library
 
 import (
-	"micro-library/connect"
-	"micro-library/helper"
+	"github.com/lifenglin/micro-library/connect"
+	"github.com/lifenglin/micro-library/helper"
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"

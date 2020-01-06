@@ -1,7 +1,7 @@
 package connect
 
 import (
-	"micro-library/helper"
+	"github.com/lifenglin/micro-library/helper"
 	"context"
 	"fmt"
 	"github.com/go-redis/redis"

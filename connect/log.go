@@ -1,7 +1,7 @@
 package connect
 
 import (
-	"micro-library/helper"
+	"github.com/lifenglin/micro-library/helper"
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"github.com/micro/go-micro/config"
 	"github.com/rifflock/lfshook"
