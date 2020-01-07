@@ -70,14 +70,14 @@ func ConnectDB(ctx context.Context, hlp *helper.Helper, srvName string, name str
 		go func() {
 			v, err := watcher.Next()
 			if err != nil {
-				logrus.WithFields(logrus.Fields{
+				mysqlLog.WithFields(logrus.Fields{
 					"error":   err,
 					"name":    name,
 					"cluster": cluster,
 					"file":    string(v.Bytes()),
 				}).Warn("reconect db")
 			} else {
-				logrus.WithFields(logrus.Fields{
+				mysqlLog.WithFields(logrus.Fields{
 					"name":    name,
 					"cluster": cluster,
 					"file":    string(v.Bytes()),
@@ -96,13 +96,13 @@ func ConnectDB(ctx context.Context, hlp *helper.Helper, srvName string, name str
 				time.Sleep(time.Duration(10) * time.Second)
 				err = db.Close()
 				if err == nil {
-					logrus.WithFields(logrus.Fields{
+					mysqlLog.WithFields(logrus.Fields{
 						"name":    name,
 						"cluster": cluster,
 						"file":    string(v.Bytes()),
 					}).Info("close db")
 				} else {
-					logrus.WithFields(logrus.Fields{
+					mysqlLog.WithFields(logrus.Fields{
 						"error":   err,
 						"name":    name,
 						"cluster": cluster,

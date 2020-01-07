@@ -33,7 +33,7 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 	if !ok {
 		conf, watcher, err := ConnectConfig(srvName, "redis")
 		if err != nil {
-			RedisLog.WithFields(logrus.Fields{
+			hlp.RedisLog.WithFields(logrus.Fields{
 				"error": err.Error(),
 			}).Error("read redis config fail")
 			return nil, fmt.Errorf("read redis config fail: %w", err)
@@ -46,7 +46,7 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 
 		pong, err := rd.Ping().Result()
 		if err != nil {
-			RedisLog.WithFields(logrus.Fields{
+			hlp.RedisLog.WithFields(logrus.Fields{
 				"addr":  clusterConfig.Addrs,
 				"pong":  pong,
 				"error": err.Error(),
@@ -60,13 +60,13 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 		go func() {
 			v, err := watcher.Next()
 			if err != nil {
-				RedisLog.WithFields(logrus.Fields{
+				hlp.RedisLog.WithFields(logrus.Fields{
 					"error": err,
 					"name":  name,
 					"file":  string(v.Bytes()),
 				}).Warn("reconect redis")
 			} else {
-				RedisLog.WithFields(logrus.Fields{
+				hlp.RedisLog.WithFields(logrus.Fields{
 					"name": name,
 					"file": string(v.Bytes()),
 				}).Info("reconnect redis")
@@ -84,12 +84,12 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 				time.Sleep(time.Duration(10) * time.Second)
 				err = rd.Close()
 				if err == nil {
-					RedisLog.WithFields(logrus.Fields{
+					hlp.RedisLog.WithFields(logrus.Fields{
 						"name": name,
 						"file": string(v.Bytes()),
 					}).Info("close rds")
 				} else {
-					RedisLog.WithFields(logrus.Fields{
+					hlp.RedisLog.WithFields(logrus.Fields{
 						"error": err,
 						"name":  name,
 						"file":  string(v.Bytes()),
