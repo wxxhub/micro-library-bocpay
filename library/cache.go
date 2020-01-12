@@ -71,7 +71,7 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 }
 
 
-func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey []string, value []interface{}) (noCacheIndex []uint32, err error) {
+func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey []string, value []interface{}) (noCacheIndex []int, err error) {
 	if len(redisKey) != len(value) {
 		return noCacheIndex, errors.New("len is not eq")
 	}
