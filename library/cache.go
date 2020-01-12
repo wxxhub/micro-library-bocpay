@@ -70,6 +70,27 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 	return errors.New("redis: nil")
 }
 
+
+func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey []string, value []interface{}) (err error) {
+	if len(redisKey) != len(value) {
+		return errors.New("len is not eq")
+	}
+	for key, item := range redisKey {
+		GetCache(ctx, hlp, srvName, name, item, value[key])
+	}
+	return nil
+}
+
+func MsetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey []string, value []interface{}, expire time.Duration) (err error) {
+	if len(redisKey) != len(value) {
+		return errors.New("len is not eq")
+	}
+	for key, item := range redisKey {
+		SetCache(ctx, hlp, srvName, name, item, value[key], expire)
+	}
+	return nil
+}
+
 func GetCacheNum(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey string) (num int64, err error) {
 	log := hlp.RedisLog
 	redis, err := connect.ConnectRedis(ctx, hlp, srvName, name)
