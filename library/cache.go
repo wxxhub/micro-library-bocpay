@@ -71,14 +71,17 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 }
 
 
-func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey []string, value []interface{}) (err error) {
+func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey []string, value []interface{}) (noCacheIndex []uint32, err error) {
 	if len(redisKey) != len(value) {
-		return errors.New("len is not eq")
+		return noCacheIndex, errors.New("len is not eq")
 	}
 	for key, item := range redisKey {
-		GetCache(ctx, hlp, srvName, name, item, value[key])
+		err := GetCache(ctx, hlp, srvName, name, item, value[key])
+		if err != nil {
+			noCacheIndex = append(noCacheIndex, key)
+		}
 	}
-	return nil
+	return noCacheIndex, nil
 }
 
 func MsetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey []string, value []interface{}, expire time.Duration) (err error) {
