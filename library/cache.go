@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/sirupsen/logrus"
+	"reflect"
 	"time"
 )
 
@@ -71,13 +72,20 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 }
 
 
-func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey []string, value []interface{}) (noCacheIndex []int, err error) {
+func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey []string, value interface{}) (noCacheIndex []int, err error) {
+	slice := reflect.ValueOf(value)
+	if slice.Kind() != reflect.Slice {
+		for key, _ := range redisKey {
+			noCacheIndex = append(noCacheIndex, key)
+		}
+		return noCacheIndex, errors.New("value need slice")
+	}
 	noCacheIndex = make([]int, 0)
-	if len(redisKey) != len(value) {
+	if len(redisKey) != slice.Len() {
 		return noCacheIndex, errors.New("len is not eq")
 	}
 	for key, item := range redisKey {
-		err := GetCache(ctx, hlp, srvName, name, item, value[key])
+		err := GetCache(ctx, hlp, srvName, name, item, slice.Index(key).Interface())
 		if err != nil {
 			noCacheIndex = append(noCacheIndex, key)
 		}
