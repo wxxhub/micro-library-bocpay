@@ -75,11 +75,13 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 				rds.RLock()
 				rd, ok := rds.Map[name]
 				rds.RUnlock()
-				if ok {
-					rds.Lock()
-					delete(rds.Map, name)
-					rds.Unlock()
+				if !ok {
+					return
 				}
+				
+				rds.Lock()
+				delete(rds.Map, name)
+				rds.Unlock()
 				//10秒后，关闭旧的redis连接
 				time.Sleep(time.Duration(10) * time.Second)
 				err = rd.Close()
