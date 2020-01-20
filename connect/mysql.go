@@ -51,6 +51,7 @@ func ConnectDB(ctx context.Context, hlp *helper.Helper, srvName string, name str
 				mysqlLog.WithFields(logrus.Fields{
 					"error": err.Error(),
 				}).Error("read database config fail")
+				dbs.Unlock()
 				return nil, fmt.Errorf("read database config fail: %w", err)
 			}
 			var clusterConfig mysqlClusterConfig
@@ -61,6 +62,7 @@ func ConnectDB(ctx context.Context, hlp *helper.Helper, srvName string, name str
 					"dsn":   clusterConfig.Dsn,
 					"error": err.Error(),
 				}).Error("connect mysql fail")
+				dbs.Unlock()
 				return nil, fmt.Errorf("connect mysql fail: %w", err)
 			}
 			//设置连接池

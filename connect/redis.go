@@ -41,6 +41,7 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 				hlp.RedisLog.WithFields(logrus.Fields{
 					"error": err.Error(),
 				}).Error("read redis config fail")
+				rds.Unlock()
 				return nil, fmt.Errorf("read redis config fail: %w", err)
 			}
 
@@ -56,6 +57,7 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 					"pong":  pong,
 					"error": err.Error(),
 				}).Error("connect redis fail")
+				rds.Unlock()
 				return nil, fmt.Errorf("connect redis fail: %w", err)
 			}
 			rds.Map[name] = rd

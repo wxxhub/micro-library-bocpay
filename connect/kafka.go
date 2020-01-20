@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-var writers sync.Map
+var (
+	writers sync.Map
+	locker  sync.Locker
+)
 
 type kafkaOption struct {
 	Broker []string
@@ -23,11 +26,18 @@ type connection struct {
 func GetKafkaWriter(topic string, log *logrus.Entry) (w *kafka.Writer, err error) {
 	c, ok := writers.Load(topic)
 	if !ok {
+		locker.Lock()
+		c, ok := writers.Load(topic)
+		if ok {
+			locker.Unlock()
+			return c.(connection).w, nil
+		}
 		conf, watcher, err := ConnectConfig("kafka", "broker")
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				"error": err.Error(),
 			}).Error("kafka connect config")
+			locker.Unlock()
 			return nil, fmt.Errorf("kafka connect config: %w", err)
 		}
 
@@ -37,6 +47,7 @@ func GetKafkaWriter(topic string, log *logrus.Entry) (w *kafka.Writer, err error
 			log.WithFields(logrus.Fields{
 				"error": err,
 			}).Error("config scan kafka")
+			locker.Unlock()
 			return nil, fmt.Errorf("config scan kafka: %w", err)
 		}
 
@@ -69,6 +80,7 @@ func GetKafkaWriter(topic string, log *logrus.Entry) (w *kafka.Writer, err error
 		})
 
 		writers.Store(topic, newConnection)
+		locker.Unlock()
 		return w, nil
 	}
 	return c.(connection).w, nil

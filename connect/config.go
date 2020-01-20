@@ -3,10 +3,10 @@ package connect
 import (
 	"fmt"
 	"github.com/micro/go-micro/config"
+	"github.com/micro/go-micro/config/encoder/yaml"
 	"github.com/micro/go-micro/config/source"
 	"github.com/micro/go-plugins/config/source/consul"
 	"github.com/sirupsen/logrus"
-	"github.com/micro/go-micro/config/encoder/yaml"
 	"os"
 	"path/filepath"
 	"sync"
@@ -33,31 +33,35 @@ func ConnectConfig(srvName string, confName string) (config.Config, config.Watch
 	configs.RUnlock()
 
 	if !ok {
-		consulSource := consul.NewSource(
-			consul.WithAddress(os.Getenv("CONSUL_ADDR")),
-			consul.WithPrefix(name),
-			consul.StripPrefix(false),
-			source.WithEncoder(yaml.NewEncoder()),
-		)
-		conf := config.NewConfig()
-		err := conf.Load(consulSource)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err.Error(),
-				"name":  name,
-			}).Error("read config fail")
-			return conf, nil, fmt.Errorf("read config fail: %w", err)
-		}
-		//配置发生变化了 执行响应的操作
-		watcher, err := conf.Watch()
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"error": err,
-			}).Warn("watcher log error")
-		}
 		configs.Lock()
-		configs.Map[name] = conf
-		configs.Watcher[name] = watcher
+		_, ok := configs.Map[name]
+		if !ok {
+			consulSource := consul.NewSource(
+				consul.WithAddress(os.Getenv("CONSUL_ADDR")),
+				consul.WithPrefix(name),
+				consul.StripPrefix(false),
+				source.WithEncoder(yaml.NewEncoder()),
+			)
+			conf := config.NewConfig()
+			err := conf.Load(consulSource)
+			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"error": err.Error(),
+					"name":  name,
+				}).Error("read config fail")
+				configs.Unlock()
+				return conf, nil, fmt.Errorf("read config fail: %w", err)
+			}
+			//配置发生变化了 执行响应的操作
+			watcher, err := conf.Watch()
+			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"error": err,
+				}).Warn("watcher log error")
+			}
+			configs.Map[name] = conf
+			configs.Watcher[name] = watcher
+		}
 		configs.Unlock()
 	}
 	return configs.Map[name], configs.Watcher[name], nil
