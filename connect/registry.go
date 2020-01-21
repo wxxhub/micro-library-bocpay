@@ -9,5 +9,6 @@ import (
 func NewConsulRegistry() registry.Registry {
 	return consulRegistry.NewRegistry(
 		registry.Addrs(os.Getenv("CONSUL_ADDR")),
+		consulRegistry.AllowStale(true),
 	)
 }
