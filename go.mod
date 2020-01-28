@@ -3,6 +3,7 @@ module github.com/lifenglin/micro-library
 go 1.13
 
 require (
+	github.com/allegro/bigcache v1.2.1
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/fastly/go-utils v0.0.0-20180712184237-d95a45783239 // indirect
 	github.com/go-redis/redis v6.15.6+incompatible
