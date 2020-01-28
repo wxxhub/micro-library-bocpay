@@ -1,24 +1,42 @@
 package library
 
 import (
-	"github.com/lifenglin/micro-library/connect"
-	"github.com/lifenglin/micro-library/helper"
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/lifenglin/micro-library/connect"
+	"github.com/lifenglin/micro-library/helper"
 	"github.com/sirupsen/logrus"
+	"path/filepath"
 	"reflect"
 	"time"
 )
 
-func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey string, value interface{}) (err error) {
+func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, localCache bool, redisKey string, value interface{}) (err error) {
 	log := hlp.RedisLog
+	var bytes []byte
+	if localCache {
+		bigCache, err := connect.ConnectBigcache()
+		if err == nil {
+			bytes, err = bigCache.Get(filepath.Join(srvName, name, redisKey))
+			if err == nil {
+				err := json.Unmarshal(bytes, value)
+				if err == nil {
+					log.WithFields(logrus.Fields{
+						"redisKey": redisKey,
+						"value":    value,
+						"bytes":    string(bytes),
+					}).Trace("all hit cache")
+					return nil
+				}
+			}
+		}
+	}
 	redis, err := connect.ConnectRedis(ctx, hlp, srvName, name)
 	if err != nil {
 		return err
 	}
 	redisTTL, err := redis.TTL(redisKey).Result()
-	var bytes []byte
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"error":    err,
@@ -72,7 +90,7 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 }
 
 
-func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey []string, value interface{}) (noCacheIndex []int, err error) {
+func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, localCache bool, redisKey []string, value interface{}) (noCacheIndex []int, err error) {
 	slice := reflect.ValueOf(value)
 	if slice.Kind() != reflect.Slice {
 		for key, _ := range redisKey {
@@ -85,7 +103,7 @@ func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name str
 		return noCacheIndex, errors.New("len is not eq")
 	}
 	for key, item := range redisKey {
-		err := GetCache(ctx, hlp, srvName, name, item, slice.Index(key).Interface())
+		err := GetCache(ctx, hlp, srvName, name, localCache, item, slice.Index(key).Interface())
 		if err != nil {
 			noCacheIndex = append(noCacheIndex, key)
 		}
@@ -93,12 +111,12 @@ func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name str
 	return noCacheIndex, nil
 }
 
-func MsetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey []string, value []interface{}, expire time.Duration) (err error) {
+func MsetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, localCache bool, redisKey []string, value []interface{}, expire time.Duration) (err error) {
 	if len(redisKey) != len(value) {
 		return errors.New("len is not eq")
 	}
 	for key, item := range redisKey {
-		SetCache(ctx, hlp, srvName, name, item, value[key], expire)
+		SetCache(ctx, hlp, srvName, name, localCache, item, value[key], expire)
 	}
 	return nil
 }
@@ -174,7 +192,7 @@ func DelCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 	return nil
 }
 
-func SetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey string, value interface{}, expire time.Duration) (err error) {
+func SetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, localCache bool, redisKey string, value interface{}, expire time.Duration) (err error) {
 	log := hlp.RedisLog
 	redis, err := connect.ConnectRedis(ctx, hlp, srvName, name)
 	if err != nil {
@@ -204,6 +222,18 @@ func SetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 			"string":   string(redisBytes),
 			"expire":   expire,
 		}).Trace("set redis")
+	}
+
+	bigCache, err := connect.ConnectBigcache()
+	if err == nil {
+		err = bigCache.Set(redisKey, redisBytes)
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				"redisKey": redisKey,
+				"bytes":	redisBytes,
+				"error":    err,
+			}).Warn("setLocal error")
+		}
 	}
 	return nil
 }

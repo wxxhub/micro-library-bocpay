@@ -9,7 +9,7 @@ import (
 var bigCache *bigcache.BigCache
 
 func init() {
-	_, err = ConnectBigcache()
+	_, err := ConnectBigcache()
 	if err != nil {
 		log.Error("connect big cache fail: %s", err)
 	}
@@ -19,16 +19,17 @@ func ConnectBigcache() (*bigcache.BigCache, error) {
 	if bigCache != nil {
 		return bigCache, nil
 	}
+	var err error
 	config := bigcache.Config{
 		// number of shards (must be a power of 2)
 		Shards: 1024,
 		// time after which entry can be evicted
-		LifeWindow: 10 * time.Second,
+		LifeWindow: 1 * time.Minute,
 
 		// Interval between removing expired entries (clean up).
 		// If set to <= 0 then no action is performed.
 		// Setting to < 1 second is counterproductive — bigcache has a one second resolution.
-		CleanWindow: 1 * time.Minute,
+		CleanWindow: 2 * time.Minute,
 
 		// rps * lifeWindow, used only in initial memory allocation
 		MaxEntriesInWindow: 1000,
