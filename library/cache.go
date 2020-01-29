@@ -26,7 +26,7 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 						"redisKey": redisKey,
 						"value":    value,
 						"bytes":    string(bytes),
-					}).Trace("all hit cache")
+					}).Trace("all hit local cache")
 					return nil
 				}
 			}
@@ -84,6 +84,21 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 			"value":    value,
 			"bytes":    string(bytes),
 		}).Trace("all hit cache")
+
+		if localCache {
+			bigCache, err := connect.ConnectBigcache()
+			if err == nil {
+				err = bigCache.Set(filepath.Join(srvName, name, redisKey), bytes)
+				if err != nil {
+					log.WithFields(logrus.Fields{
+						"redisKey": redisKey,
+						"bytes":	bytes,
+						"error":    err,
+					}).Warn("setLocal error")
+				}
+			}
+		}
+
 		return nil
 	}
 	return errors.New("redis: nil")
@@ -226,7 +241,7 @@ func SetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 
 	bigCache, err := connect.ConnectBigcache()
 	if err == nil {
-		err = bigCache.Set(redisKey, redisBytes)
+		err = bigCache.Set(filepath.Join(srvName, name, redisKey), redisBytes)
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				"redisKey": redisKey,

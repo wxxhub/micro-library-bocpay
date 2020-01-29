@@ -140,6 +140,7 @@ func ConnectLog(srvName string) (err error) {
 
 	MysqlLog = log.New()
 	MysqlLog.SetReportCaller(true)
+	MysqlLog.SetLevel(level)
 	writerMap = make(lfshook.WriterMap)
 	path = filepath.Join(helper.GetBasePath(), logConfig.Dirpath, os.Getenv("POD_NAME"), "mysql.log")
 	writer, err = rotatelogs.New(
@@ -161,6 +162,7 @@ func ConnectLog(srvName string) (err error) {
 	))
 
 	RedisLog = log.New()
+	RedisLog.SetLevel(level)
 	RedisLog.SetReportCaller(true)
 	writerMap = make(lfshook.WriterMap)
 	path = filepath.Join(helper.GetBasePath(), logConfig.Dirpath, os.Getenv("POD_NAME"), "redis.log")
