@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	bigCache *bigcache.BigCache
-	once     *sync.Once
-	config   = bigcache.Config{
+	bigCache    *bigcache.BigCache
+	once        *sync.Once
+	cacheConfig = bigcache.Config{
 		// number of shards (must be a power of 2)
 		Shards: 8,
 		// time after which entry can be evicted
@@ -51,7 +51,7 @@ var (
 func ConnectBigcache() (*bigcache.BigCache, error) {
 	once.Do(func() {
 		var err error
-		bigCache, err = bigcache.NewBigCache(config)
+		bigCache, err = bigcache.NewBigCache(cacheConfig)
 		if err != nil {
 			log.Error("connect big cache fail: %s", err)
 		}
