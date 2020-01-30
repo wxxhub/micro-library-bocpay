@@ -22,7 +22,7 @@ func ConnectBigcache() (*bigcache.BigCache, error) {
 	var err error
 	config := bigcache.Config{
 		// number of shards (must be a power of 2)
-		Shards: 1024,
+		Shards: 256,
 		// time after which entry can be evicted
 		LifeWindow: 1 * time.Minute,
 
@@ -32,7 +32,7 @@ func ConnectBigcache() (*bigcache.BigCache, error) {
 		CleanWindow: 2 * time.Minute,
 
 		// rps * lifeWindow, used only in initial memory allocation
-		MaxEntriesInWindow: 500,
+		MaxEntriesInWindow: 256,
 
 		// max entry size in bytes, used only in initial memory allocation
 		MaxEntrySize: 256000,
