@@ -9,7 +9,7 @@ import (
 
 var (
 	bigCache    *bigcache.BigCache
-	once        *sync.Once
+	once        sync.Once
 	cacheConfig = bigcache.Config{
 		// number of shards (must be a power of 2)
 		Shards: 256,
