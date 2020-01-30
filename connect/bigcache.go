@@ -3,26 +3,16 @@ package connect
 import (
 	"github.com/allegro/bigcache"
 	log "github.com/sirupsen/logrus"
+	"sync"
 	"time"
 )
 
-var bigCache *bigcache.BigCache
-
-func init() {
-	_, err := ConnectBigcache()
-	if err != nil {
-		log.Error("connect big cache fail: %s", err)
-	}
-}
-
-func ConnectBigcache() (*bigcache.BigCache, error) {
-	if bigCache != nil {
-		return bigCache, nil
-	}
-	var err error
-	config := bigcache.Config{
+var (
+	bigCache *bigcache.BigCache
+	once     *sync.Once
+	config   = bigcache.Config{
 		// number of shards (must be a power of 2)
-		Shards: 256,
+		Shards: 8,
 		// time after which entry can be evicted
 		LifeWindow: 1 * time.Minute,
 
@@ -56,9 +46,16 @@ func ConnectBigcache() (*bigcache.BigCache, error) {
 		// Ignored if OnRemove is specified.
 		OnRemoveWithReason: nil,
 	}
-	bigCache, err = bigcache.NewBigCache(config)
-	if err != nil {
-		return nil, err
-	}
+)
+
+func ConnectBigcache() (*bigcache.BigCache, error) {
+	once.Do(func() {
+		var err error
+		bigCache, err = bigcache.NewBigCache(config)
+		if err != nil {
+			log.Error("connect big cache fail: %s", err)
+		}
+	})
+
 	return bigCache, nil
 }
