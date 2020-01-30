@@ -12,7 +12,7 @@ var (
 	once        sync.Once
 	cacheConfig = bigcache.Config{
 		// number of shards (must be a power of 2)
-		Shards: 256,
+		Shards: 8,
 		// time after which entry can be evicted
 		LifeWindow: 1 * time.Minute,
 
