@@ -205,6 +205,7 @@ func ConnectLog(srvName string) (err error) {
 	} else {
 		AccessLog.SetOutput(os.Stderr)
 	}
+	log.SetOutput(os.Stderr)
 	MysqlLog.SetOutput(os.Stderr)
 	RedisLog.SetOutput(os.Stderr)
 	SlowLog.SetOutput(os.Stderr)
