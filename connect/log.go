@@ -201,15 +201,12 @@ func ConnectLog(srvName string) (err error) {
 	}()
 
 	if false == logConfig.Display {
-		SlowLog.SetOutput(ioutil.Discard)
 		AccessLog.SetOutput(ioutil.Discard)
-		MysqlLog.SetOutput(ioutil.Discard)
-		RedisLog.SetOutput(ioutil.Discard)
 	} else {
-		SlowLog.SetOutput(os.Stderr)
 		AccessLog.SetOutput(os.Stderr)
-		MysqlLog.SetOutput(os.Stderr)
-		RedisLog.SetOutput(os.Stderr)
 	}
+	MysqlLog.SetOutput(os.Stderr)
+	RedisLog.SetOutput(os.Stderr)
+	SlowLog.SetOutput(os.Stderr)
 	return nil
 }
