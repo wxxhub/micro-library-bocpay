@@ -29,6 +29,7 @@ func ConnectSqlite(ctx context.Context, hlp *helper.Helper, srvName string, name
 
 	sqlitesKey := name
 	mysqlLog := hlp.MysqlLog
+	var err error
 	sqlites.RLock()
 	db, ok := sqlites.Map[sqlitesKey]
 	sqlites.RUnlock()
@@ -38,7 +39,7 @@ func ConnectSqlite(ctx context.Context, hlp *helper.Helper, srvName string, name
 		if ok {
 			db = existDb
 		} else {
-			db, err := gorm.Open("sqlite3", ":memory:")
+			db, err = gorm.Open("sqlite3", ":memory:")
 			if err != nil {
 				mysqlLog.WithFields(logrus.Fields{
 					"error": err.Error(),
