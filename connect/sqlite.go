@@ -27,6 +27,35 @@ func ConnectSqlite(ctx context.Context, hlp *helper.Helper, srvName string, name
 	timer.Start("connectSqlite")
 	defer timer.End("connectSqlite")
 
+	mysqlLog := hlp.MysqlLog
+	db, err := gorm.Open("sqlite3", ":memory:")
+	if err != nil {
+		mysqlLog.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Error("connect sqlite fail")
+		return nil, fmt.Errorf("connect sqlite fail: %w", err)
+	}
+	db.SingularTable(true)
+	db.BlockGlobalUpdate(false)
+	db.SetLogger(mysqlLog)
+	conf, _, err := ConnectConfig(srvName, "log")
+	if err != nil {
+		//配置获取失败
+		mysqlLog.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Error("read log config fail")
+	} else {
+		db.LogMode(conf.Get(srvName, "log", "mysql_detailed_log").Bool(false))
+	}
+	return db, nil
+}
+
+/*
+func ConnectSqlite(ctx context.Context, hlp *helper.Helper, srvName string, name string) (*gorm.DB, error) {
+	timer := hlp.Timer
+	timer.Start("connectSqlite")
+	defer timer.End("connectSqlite")
+
 	sqlitesKey := name
 	mysqlLog := hlp.MysqlLog
 	var err error
@@ -66,3 +95,4 @@ func ConnectSqlite(ctx context.Context, hlp *helper.Helper, srvName string, name
 	}
 	return newDb, nil
 }
+*/
