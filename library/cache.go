@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/lifenglin/micro-library/connect"
 	"github.com/lifenglin/micro-library/helper"
 	"github.com/sirupsen/logrus"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"time"
 )
 
@@ -136,8 +138,27 @@ func MsetCache(ctx context.Context, hlp *helper.Helper, srvName string, name str
 	return nil
 }
 
-func GetCacheNum(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey string) (num int64, err error) {
+func GetCacheNum(ctx context.Context, hlp *helper.Helper, srvName string, name string, localCache bool, redisKey string) (num int64, err error) {
 	log := hlp.RedisLog
+	var bytes []byte
+	if localCache {
+		bigCache, err := connect.ConnectBigcache()
+		if err == nil {
+			bytes, err = bigCache.Get(filepath.Join(srvName, name, redisKey))
+			if err == nil {
+				int64, err := strconv.ParseInt(string(bytes), 10, 64)
+				if err == nil {
+					log.WithFields(logrus.Fields{
+						"redisKey": redisKey,
+						"value":    int64,
+						"bytes":    string(bytes),
+					}).Trace("all hit local cache")
+					return int64, nil
+				}
+			}
+		}
+	}
+
 	redis, err := connect.ConnectRedis(ctx, hlp, srvName, name)
 	if err != nil {
 		return num, err
@@ -175,6 +196,19 @@ func GetCacheNum(ctx context.Context, hlp *helper.Helper, srvName string, name s
 					"num":      num,
 				}).Trace("miss cache")
 				return num, errors.New("redis: nil")
+			}
+		}
+	}
+	if localCache {
+		bigCache, err := connect.ConnectBigcache()
+		if err == nil {
+			err = bigCache.Set(filepath.Join(srvName, name, redisKey), []byte(fmt.Sprint(num)))
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"redisKey": redisKey,
+					"num":	num,
+					"error":    err,
+				}).Warn("setLocal error")
 			}
 		}
 	}
@@ -239,21 +273,24 @@ func SetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 		}).Trace("set redis")
 	}
 
-	bigCache, err := connect.ConnectBigcache()
-	if err == nil {
-		err = bigCache.Set(filepath.Join(srvName, name, redisKey), redisBytes)
-		if err != nil {
-			log.WithFields(logrus.Fields{
-				"redisKey": redisKey,
-				"bytes":	redisBytes,
-				"error":    err,
-			}).Warn("setLocal error")
+	if localCache {
+		bigCache, err := connect.ConnectBigcache()
+		if err == nil {
+			err = bigCache.Set(filepath.Join(srvName, name, redisKey), redisBytes)
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"redisKey": redisKey,
+					"bytes":	redisBytes,
+					"error":    err,
+				}).Warn("setLocal error")
+			}
 		}
 	}
+
 	return nil
 }
 
-func SetCacheNum(ctx context.Context, hlp *helper.Helper, srvName string, name string, redisKey string, value int64, expire time.Duration) (err error) {
+func SetCacheNum(ctx context.Context, hlp *helper.Helper, srvName string, name string, localCache bool, redisKey string, value int64, expire time.Duration) (err error) {
 	log := hlp.RedisLog
 	redis, err := connect.ConnectRedis(ctx, hlp, srvName, name)
 	if err != nil {
@@ -276,5 +313,20 @@ func SetCacheNum(ctx context.Context, hlp *helper.Helper, srvName string, name s
 			"expire":   expire,
 		}).Trace("set redis")
 	}
+
+	if localCache {
+		bigCache, err := connect.ConnectBigcache()
+		if err == nil {
+			err = bigCache.Set(filepath.Join(srvName, name, redisKey), []byte(fmt.Sprint(value)))
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"redisKey": redisKey,
+					"bytes":	value,
+					"error":    err,
+				}).Warn("setLocal error")
+			}
+		}
+	}
+
 	return nil
 }
