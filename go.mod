@@ -21,4 +21,5 @@ require (
 	github.com/uber/jaeger-client-go v2.21.1+incompatible
 	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
 	gopkg.in/go-playground/pool.v3 v3.1.1
+	seata.io/server v0.0.0-20190710034032-f96999529db3
 )
