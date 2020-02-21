@@ -16,11 +16,14 @@ import (
 
 func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, localCache bool, redisKey string, value interface{}) (err error) {
 	log := hlp.RedisLog
+	timer := hlp.Timer
 	var bytes []byte
 	if localCache {
 		bigCache, err := connect.ConnectBigcache()
 		if err == nil {
+			timer.Start("BigCacheGet_"+redisKey)
 			bytes, err = bigCache.Get(filepath.Join(srvName, name, redisKey))
+			timer.End("BigCacheGet_"+redisKey)
 			if err == nil {
 				err := json.Unmarshal(bytes, value)
 				if err == nil {
@@ -38,7 +41,9 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 	if err != nil {
 		return err
 	}
+	timer.Start("redisTTL_"+redisKey)
 	redisTTL, err := redis.TTL(redisKey).Result()
+	timer.End("redisTTL_"+redisKey)
 	if err != nil {
 		log.WithFields(logrus.Fields{
 			"error":    err,
@@ -55,7 +60,9 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 		} else if -2 == redisTTL.Seconds() {
 			//empty
 		} else {
+			timer.Start("redisGet_"+redisKey)
 			bytes, err = redis.Get(redisKey).Bytes()
+			timer.End("redisGet_"+redisKey)
 			if err != nil && err.Error() != "redis: nil" {
 				log.WithFields(logrus.Fields{
 					"error":    err,
@@ -90,7 +97,9 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 		if localCache {
 			bigCache, err := connect.ConnectBigcache()
 			if err == nil {
+				timer.Start("BigCacheSet_"+redisKey)
 				err = bigCache.Set(filepath.Join(srvName, name, redisKey), bytes)
+				timer.End("BigCacheSet_"+redisKey)
 				if err != nil {
 					log.WithFields(logrus.Fields{
 						"redisKey": redisKey,
