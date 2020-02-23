@@ -41,42 +41,21 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 	if err != nil {
 		return err
 	}
-	timer.Start("redisTTL_"+redisKey)
-	redisTTL, err := redis.TTL(redisKey).Result()
-	timer.End("redisTTL_"+redisKey)
-	if err != nil {
+	timer.Start("redisGet_"+redisKey)
+	bytes, err = redis.Get(redisKey).Bytes()
+	timer.End("redisGet_"+redisKey)
+	if err != nil && err.Error() != "redis: nil" {
 		log.WithFields(logrus.Fields{
 			"error":    err,
 			"redisKey": redisKey,
-		}).Warn("getTTLFromRedis error")
+		}).Warn("getDataFromRedis error")
+	} else if err != nil {
+		//缓存未命中，从数据库中获取数据
+		log.WithFields(logrus.Fields{
+			"redisKey": redisKey,
+			"bytes":    string(bytes),
+		}).Trace("miss cache")
 		return err
-	} else {
-		if -1 == redisTTL.Seconds() {
-			log.WithFields(logrus.Fields{
-				"error":    err,
-				"redisKey": redisKey,
-			}).Warn("ttl should not no expire")
-			return err
-		} else if -2 == redisTTL.Seconds() {
-			//empty
-		} else {
-			timer.Start("redisGet_"+redisKey)
-			bytes, err = redis.Get(redisKey).Bytes()
-			timer.End("redisGet_"+redisKey)
-			if err != nil && err.Error() != "redis: nil" {
-				log.WithFields(logrus.Fields{
-					"error":    err,
-					"redisKey": redisKey,
-				}).Warn("getDataFromRedis error")
-			} else if err != nil {
-				//缓存未命中，从数据库中获取数据
-				log.WithFields(logrus.Fields{
-					"redisKey": redisKey,
-					"bytes":    string(bytes),
-				}).Trace("miss cache")
-				return err
-			}
-		}
 	}
 	//如果命中缓存，则从缓存中拿出数据返回
 	if bytes != nil {
@@ -109,7 +88,6 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 				}
 			}
 		}
-
 		return nil
 	}
 	return errors.New("redis: nil")
@@ -172,41 +150,21 @@ func GetCacheNum(ctx context.Context, hlp *helper.Helper, srvName string, name s
 	if err != nil {
 		return num, err
 	}
-	redisTTL, err := redis.TTL(redisKey).Result()
-	if err != nil {
+	num, err = redis.Get(redisKey).Int64()
+	if err != nil && err.Error() != "redis: nil" {
 		log.WithFields(logrus.Fields{
 			"error":    err,
 			"redisKey": redisKey,
-		}).Warn("getTTLFromRedis error")
+		}).Warn("getDataFromRedis error")
 		return num, errors.New("redis: nil")
-	} else {
-		if -1 == redisTTL.Seconds() {
-			log.WithFields(logrus.Fields{
-				"error":    err,
-				"redisKey": redisKey,
-			}).Warn("ttl should not no expire")
-			return num, errors.New("redis: nil")
-		} else if -2 == redisTTL.Seconds() {
-			//empty
-			return num, errors.New("redis: nil")
-		} else {
-			num, err = redis.Get(redisKey).Int64()
-			if err != nil && err.Error() != "redis: nil" {
-				log.WithFields(logrus.Fields{
-					"error":    err,
-					"redisKey": redisKey,
-				}).Warn("getDataFromRedis error")
-				return num, errors.New("redis: nil")
-			} else if err != nil {
-				//缓存未命中，从数据库中获取数据
-				log.WithFields(logrus.Fields{
-					"redisKey": redisKey,
-					"err":      err,
-					"num":      num,
-				}).Trace("miss cache")
-				return num, errors.New("redis: nil")
-			}
-		}
+	} else if err != nil {
+		//缓存未命中，从数据库中获取数据
+		log.WithFields(logrus.Fields{
+			"redisKey": redisKey,
+			"err":      err,
+			"num":      num,
+		}).Trace("miss cache")
+		return num, errors.New("redis: nil")
 	}
 	if localCache {
 		bigCache, err := connect.ConnectBigcache()
