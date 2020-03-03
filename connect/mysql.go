@@ -93,11 +93,13 @@ func ConnectDB(ctx context.Context, hlp *helper.Helper, srvName string, name str
 					dbs.RLock()
 					db, ok := dbs.Map[dbsKey]
 					dbs.RUnlock()
-					if ok {
-						dbs.Lock()
-						delete(dbs.Map, dbsKey)
-						dbs.Unlock()
+					if !ok {
+						return
 					}
+
+					dbs.Lock()
+					delete(dbs.Map, dbsKey)
+					dbs.Unlock()
 					//10秒后，关闭旧的数据库连接
 					time.Sleep(time.Duration(10) * time.Second)
 					err = db.Close()
