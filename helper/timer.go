@@ -1,7 +1,6 @@
 package helper
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -33,10 +32,9 @@ func (t *Timer) Duration(name string) time.Duration {
 	return t.duration[name].Duration()
 }
 
-func (t *Timer) Calculation() (map[string]string, map[string]string) {
+func (t *Timer) Calculation() (map[string]string) {
 	//转换时间格式
 	var strTimer = make(map[string]string)
-	var profiler = make(map[string]string)
 	var recordProfiler time.Duration
 	allTimer := t.Duration("allTimer")
 	for key, val := range t.duration {
@@ -44,16 +42,13 @@ func (t *Timer) Calculation() (map[string]string, map[string]string) {
 		//精确到毫秒值
 		strTimer[key] = dura.Round(time.Millisecond).String()
 		if key != "allTimer" {
-			//按百分比计算逻辑耗时
-			profiler[key] = fmt.Sprintf("%.2f%%", float64(dura.Nanoseconds())/float64(allTimer.Nanoseconds())*100)
 			//Timer标记过的总时间
 			recordProfiler += dura
 		}
 	}
 	//其余没有记录的百分比耗时
-	profiler["other"] = fmt.Sprintf("%.2f%%", 100-float64(recordProfiler.Nanoseconds())/float64(allTimer.Nanoseconds())*100)
 	strTimer["other"] = (allTimer - recordProfiler).Round(time.Millisecond).String()
-	return strTimer, profiler
+	return strTimer
 }
 
 type duration struct {
