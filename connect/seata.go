@@ -14,7 +14,7 @@ type seataConfig struct {
 	addrs []string
 }
 
-func ConnectSeata(ctx context.Context, hlp *helper.Helper, srvName string, name string, handler *client.ResourceHandler, resources []string) (*client.Client, error) {
+func ConnectSeata(ctx context.Context, hlp *helper.Helper, srvName string, name string, applicationID string, handler *client.ResourceHandler, resources []string) (*client.Client, error) {
 	conf, _, err := ConnectConfig(srvName, "seata")
 	if err != nil {
 		hlp.RedisLog.WithFields(logrus.Fields{
@@ -29,7 +29,7 @@ func ConnectSeata(ctx context.Context, hlp *helper.Helper, srvName string, name 
 		Addrs:             seataConf.addrs,
 		HeartbeatDuration: time.Second * 5,
 		Timeout:           time.Second * 10,
-		ApplicationID:     srvName,
+		ApplicationID:     applicationID,
 		Version:           "0.5.0",
 		Resources:         resources,
 		Handler:           *handler,
