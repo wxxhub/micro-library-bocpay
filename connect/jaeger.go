@@ -16,7 +16,7 @@ func ConnectJaeger(srvName string) (opentracing.Tracer, error) {
 	// Zipkin shares span ID between client and server spans; it must be enabled via the following option.
 	zipkinSharedRPCSpan := jaeger.TracerOptions.ZipkinSharedRPCSpan(true)
 
-	sender, err := jaeger.NewUDPTransport("jaeger-agent.istio-system:5775", 0)
+	sender, err := jaeger.NewUDPTransport("jaeger-agent.default:5775", 0)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"error": err.Error(),
