@@ -11,5 +11,13 @@ func GetIncrementId(ctx context.Context, hlp *helper.Helper) (id uint64, err err
 	if err != nil {
 		return 0, nil
 	}
-	return redis.Do("getid").Uint64()
+	//重试2次
+	for i := 0; i < 2; i++ {
+		id, err = redis.Do("getid").Uint64()
+		if err == nil {
+			return id, nil
+		}
+	}
+	return 0, err
+
 }
