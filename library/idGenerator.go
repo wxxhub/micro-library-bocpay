@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/lifenglin/micro-library/connect"
 	"github.com/lifenglin/micro-library/helper"
+	"github.com/sirupsen/logrus"
 )
 
 func GetIncrementId(ctx context.Context, hlp *helper.Helper) (id uint64, err error) {
@@ -16,6 +17,13 @@ func GetIncrementId(ctx context.Context, hlp *helper.Helper) (id uint64, err err
 		id, err = redis.Do("getid").Uint64()
 		if err == nil {
 			return id, nil
+		}
+		pong, err := redis.Ping().Result()
+		if err != nil {
+			hlp.RedisLog.WithFields(logrus.Fields{
+				"pong":  pong,
+				"error": err.Error(),
+			}).Error("connect redis fail")
 		}
 	}
 	return 0, err
