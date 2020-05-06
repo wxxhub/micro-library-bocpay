@@ -2,10 +2,11 @@ package connect
 
 import (
 	"fmt"
-	"github.com/micro/go-micro/config"
-	"github.com/micro/go-micro/config/encoder/yaml"
-	"github.com/micro/go-micro/config/source"
+	"github.com/micro/go-micro/v2/config"
+	"github.com/micro/go-micro/v2/config/encoder/yaml"
+	"github.com/micro/go-micro/v2/config/source"
 	"github.com/micro/go-plugins/config/source/consul"
+	"github.com/micro/go-plugins/config/source/consul/v2"
 	"github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
@@ -42,8 +43,16 @@ func ConnectConfig(srvName string, confName string) (config.Config, config.Watch
 				consul.StripPrefix(false),
 				source.WithEncoder(yaml.NewEncoder()),
 			)
-			conf := config.NewConfig()
-			err := conf.Load(consulSource)
+			conf, err := config.NewConfig()
+			if err != nil {
+				logrus.WithFields(logrus.Fields{
+					"error": err.Error(),
+					"name":  name,
+				}).Error("read config fail")
+				configs.Unlock()
+				return conf, nil, fmt.Errorf("read config fail: %w", err)
+			}
+			err = conf.Load(consulSource)
 			if err != nil {
 				logrus.WithFields(logrus.Fields{
 					"error": err.Error(),

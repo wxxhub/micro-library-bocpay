@@ -3,7 +3,7 @@ package connect
 import (
 	"github.com/lifenglin/micro-library/helper"
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
-	"github.com/micro/go-micro/config"
+	"github.com/micro/go-micro/v2/config"
 	"github.com/rifflock/lfshook"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
