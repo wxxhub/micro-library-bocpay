@@ -5,7 +5,6 @@ import (
 	"github.com/micro/go-micro/v2/config"
 	"github.com/micro/go-micro/v2/config/encoder/yaml"
 	"github.com/micro/go-micro/v2/config/source"
-	"github.com/micro/go-plugins/config/source/consul"
 	"github.com/micro/go-plugins/config/source/consul/v2"
 	"github.com/sirupsen/logrus"
 	"os"
