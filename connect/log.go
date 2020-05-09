@@ -81,21 +81,6 @@ func ConnectLog(srvName string) (err error) {
 		&log.TextFormatter{},
 	))
 
-	if stdErrFile == nil && false == logConfig.Display {
-		//os.MkdirAll(filepath.Join(helper.GetBasePath(), logConfig.Dirpath, "user-block"), os.ModePerm)
-		//stdErrFile, err = os.OpenFile(filepath.Join(helper.GetBasePath(), logConfig.Dirpath, "user-block", "stderr.log"), os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND,0666)
-		stdErrFile, err = os.OpenFile(filepath.Join(helper.GetBasePath(), logConfig.Dirpath, os.Getenv("POD_NAME"), "stderr.log"), os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0666)
-		if err != nil {
-			//日志write失败
-			log.Fatal(err)
-		}
-		err = syscall.Dup2(int(stdErrFile.Fd()), int(os.Stderr.Fd()))
-		if err != nil {
-			//日志write失败
-			log.Fatal(err)
-		}
-	}
-
 	AccessLog = log.New()
 	writerMap = make(lfshook.WriterMap)
 	path := filepath.Join(helper.GetBasePath(), logConfig.Dirpath, os.Getenv("POD_NAME"), "access.log")
@@ -212,3 +197,47 @@ func ConnectLog(srvName string) (err error) {
 
 	return nil
 }
+
+func ConnectStdLog(srvName string) (err error) {
+	var conf config.Config
+	var logConfig logConfig
+	conf, _, err = ConnectConfig(srvName, "log")
+	conf.Get(srvName, "log").Scan(&logConfig)
+
+	//设置日志级别
+	levelText := logConfig.Level
+	level, err := log.ParseLevel(levelText)
+	if err != nil {
+		level, err = log.ParseLevel("info")
+	}
+	log.SetLevel(level)
+	log.SetReportCaller(true)
+
+	dir := filepath.Join(helper.GetBasePath(), logConfig.Dirpath, os.Getenv("POD_NAME"))
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if stdErrFile == nil && false == logConfig.Display {
+		stdErrFile, err = os.OpenFile(filepath.Join(helper.GetBasePath(), logConfig.Dirpath, os.Getenv("POD_NAME"), "stderr.log"), os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0666)
+		if err != nil {
+			//日志write失败
+			log.Fatal(err)
+		}
+		err = syscall.Dup2(int(stdErrFile.Fd()), int(os.Stderr.Fd()))
+		if err != nil {
+			//日志write失败
+			log.Fatal(err)
+		}
+		err = syscall.Dup2(int(stdErrFile.Fd()), int(os.Stdout.Fd()))
+		if err != nil {
+			//日志write失败
+			log.Fatal(err)
+		}
+	}
+
+	return nil
+}
+
