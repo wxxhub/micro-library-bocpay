@@ -187,6 +187,10 @@ func ConnectLog(srvName string) (err error) {
 
 	if false == logConfig.Display {
 		AccessLog.SetOutput(ioutil.Discard)
+		log.SetOutput(ioutil.Discard)
+		MysqlLog.SetOutput(ioutil.Discard)
+		RedisLog.SetOutput(ioutil.Discard)
+		SlowLog.SetOutput(ioutil.Discard)
 	} else {
 		AccessLog.SetOutput(os.Stderr)
 		log.SetOutput(os.Stderr)
