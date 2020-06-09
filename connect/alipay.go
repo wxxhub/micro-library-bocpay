@@ -35,12 +35,12 @@ func ConnectAlipay(srvName string, confName string) (*alipay.Client, error) {
 
 	alipayClient, err = alipay.New(appId, privateKey, isProduction)
 	if err != nil {
-		return nil, errors.InternalServerError(SrvName, "new alipay fail: %v", err.Error())
+		return nil, errors.InternalServerError(srvName, "new alipay fail: %v", err.Error())
 	}
 
 	err = alipayClient.LoadAliPayPublicKey(publicKey)
 	if err != nil {
-		return nil, errors.InternalServerError(SrvName, "load public key fail: %v", err.Error())
+		return nil, errors.InternalServerError(srvName, "load public key fail: %v", err.Error())
 	}
 
 	return alipayClient, nil
