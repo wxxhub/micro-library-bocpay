@@ -1,5 +1,7 @@
 module github.com/lifenglin/micro-library
 
+replace github.com/smartwalle/alipay/v3 => github.com/smartwalle/alipay/v3 v3.1.3
+
 go 1.14
 
 require (
@@ -26,6 +28,7 @@ require (
 	github.com/segmentio/kafka-go v0.3.6
 	github.com/shopspring/decimal v1.2.0
 	github.com/sirupsen/logrus v1.6.0
+	github.com/smartwalle/alipay/v3 v3.1.3
 	github.com/tebeka/strftime v0.1.4 // indirect
 	github.com/uber/jaeger-client-go v2.23.1+incompatible
 	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
