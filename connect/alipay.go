@@ -39,12 +39,12 @@ func ConnectAlipay(srvName string, confName string) (*alipay.Client, error) {
 	}
 
 	rootCert := conf.Get(srvName, confName, "rootCert").String("")
-	if certPublicKeyRSA2 == "" {
-		return nil, errors.InternalServerError(srvName, "certPublicKeyRSA2 is empty")
+	if rootCert == "" {
+		return nil, errors.InternalServerError(srvName, "rootCert is empty")
 	}
 
 	certPublicKey := conf.Get(srvName, confName, "certPublicKey").String("")
-	if certPublicKeyRSA2 == "" {
+	if certPublicKey == "" {
 		return nil, errors.InternalServerError(srvName, "certPublicKey is empty")
 	}
 
