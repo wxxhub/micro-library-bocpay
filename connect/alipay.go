@@ -26,12 +26,10 @@ func ConnectAlipay(srvName string, confName string) (*alipay.Client, error) {
 		return nil, errors.InternalServerError(srvName, "privateKey is empty")
 	}
 
-	/*
 	publicKey := conf.Get(srvName, confName, "publicKey").String("")
 	if privateKey == "" {
 		return nil, errors.InternalServerError(srvName, "publicKey is empty")
 	}
-	*/
 
 	certPublicKeyRSA2 := conf.Get(srvName, confName, "certPublicKeyRSA2").String("")
 	if certPublicKeyRSA2 == "" {
@@ -55,12 +53,10 @@ func ConnectAlipay(srvName string, confName string) (*alipay.Client, error) {
 		return nil, errors.InternalServerError(srvName, "new alipay fail: %v", err.Error())
 	}
 
-	/*
 	err = alipayClient.LoadAliPayPublicKey(publicKey)
 	if err != nil {
 		return nil, errors.InternalServerError(srvName, "load public key fail: %v", err.Error())
 	}
-	*/
 
 	err = alipayClient.LoadAppPublicCert(certPublicKey) // 加载应用公钥证书
 	if err != nil {
