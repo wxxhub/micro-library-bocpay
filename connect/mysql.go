@@ -7,6 +7,9 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"github.com/lifenglin/micro-library/helper"
 	"github.com/sirupsen/logrus"
+	mysql2 "gorm.io/driver/mysql"
+	gorm2 "gorm.io/gorm"
+	"gorm.io/plugin/prometheus"
 	"sync"
 	"time"
 )
@@ -72,6 +75,12 @@ func ConnectDB(ctx context.Context, hlp *helper.Helper, srvName string, name str
 			db.SingularTable(true)
 			db.BlockGlobalUpdate(false)
 			dbs.Map[dbsKey] = db
+
+			db2, err := gorm2.Open(mysql2.Open(clusterConfig.Dsn), &gorm2.Config{})
+			if err == nil {
+				db2.ConnPool = db.DB()
+				db2.Use(prometheus.New(prometheus.Config{DBName: srvName}))
+			}
 
 			go func() {
 				v, err := watcher.Next()

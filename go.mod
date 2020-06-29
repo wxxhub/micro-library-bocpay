@@ -34,4 +34,7 @@ require (
 	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/pool.v3 v3.1.1
+	gorm.io/driver/mysql v0.2.7
+	gorm.io/gorm v0.2.18
+	gorm.io/plugin/prometheus v0.0.0-20200624125218-0004dad9faf5
 )
