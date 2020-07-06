@@ -14,7 +14,7 @@ var rds *Rds
 
 type Rds struct {
 	sync.RWMutex
-	Map map[string]*redis.ClusterClient
+	Map      map[string]*redis.ClusterClient
 	MapRedis map[string]*redis.Client
 }
 
@@ -48,7 +48,15 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 			}
 
 			var clusterConfig redis.ClusterOptions
-			conf.Get(srvName, "redis", name).Scan(&clusterConfig)
+			err = conf.Get(srvName, "redis", name).Scan(&clusterConfig)
+			if err != nil {
+				hlp.RedisLog.WithFields(logrus.Fields{
+					"srv name":   srvName,
+					"redis name": name,
+					"error":      err.Error(),
+				})
+				return nil, fmt.Errorf("cluster config scan error: %w", err)
+			}
 
 			rd = redis.NewClusterClient(&clusterConfig)
 
@@ -113,7 +121,6 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 	newRedis := rd.WithContext(ctx)
 	return newRedis, nil
 }
-
 
 func ConnectIdGenerator(ctx context.Context, hlp *helper.Helper) (*redis.Client, error) {
 	timer := hlp.Timer
