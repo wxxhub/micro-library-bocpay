@@ -55,6 +55,7 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 					"redis name": name,
 					"error":      err.Error(),
 				})
+				rds.Unlock()
 				return nil, fmt.Errorf("cluster config scan error: %w", err)
 			}
 
