@@ -3,6 +3,7 @@ package connect
 import (
 	"github.com/micro/go-micro/v2/errors"
 	alipay "github.com/smartwalle/alipay/v3"
+	"time"
 )
 
 var alipayClient *alipay.Client
@@ -74,6 +75,7 @@ func ConnectAlipay(srvName string, confName string) (*alipay.Client, error) {
 	if err != nil {
 		return nil, errors.InternalServerError(srvName, "LoadAliPayPublicCert fail: %v", err.Error())
 	}
+	alipayClient.Client.Timeout = 5 * time.Second
 
 	return alipayClient, nil
 }
