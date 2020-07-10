@@ -95,7 +95,7 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 					"srv name":   srvName,
 					"redis name": name,
 					"error":      err.Error(),
-				})
+				}).Error("redis scan: ", err)
 				rds.Unlock()
 				return nil, fmt.Errorf("cluster config scan error: %w", err)
 			}
@@ -104,7 +104,7 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 			if err != nil {
 				hlp.RedisLog.WithFields(logrus.Fields{
 					"cluster options error": err.Error(),
-				})
+				}).Error("get cluster options: ", err)
 				rds.Unlock()
 				return nil, fmt.Errorf("cluster config options error: %w", err)
 			}
