@@ -18,6 +18,47 @@ type Rds struct {
 	MapRedis map[string]*redis.Client
 }
 
+type RedisConf struct {
+	Addrs        []string
+	MaxRetries   int
+	PoolSize     int
+	MinIdleConns int
+	DialTimeout  string
+	ReadTimeout  string
+	WriteTimeout string
+	MaxConnAge   string
+}
+
+func (rc RedisConf) clusterOptions() (redis.ClusterOptions, error) {
+	dial, err := time.ParseDuration(rc.DialTimeout)
+	if err != nil {
+		return redis.ClusterOptions{}, err
+	}
+	read, err := time.ParseDuration(rc.ReadTimeout)
+	if err != nil {
+		return redis.ClusterOptions{}, err
+	}
+	write, err := time.ParseDuration(rc.WriteTimeout)
+	if err != nil {
+		return redis.ClusterOptions{}, err
+	}
+	maxConn, err := time.ParseDuration(rc.MaxConnAge)
+	if err != nil {
+		return redis.ClusterOptions{}, err
+	}
+
+	return redis.ClusterOptions{
+		Addrs:        rc.Addrs,
+		MaxRetries:   rc.MaxRetries,
+		PoolSize:     rc.PoolSize,
+		MinIdleConns: rc.MinIdleConns,
+		DialTimeout:  dial,
+		ReadTimeout:  read,
+		WriteTimeout: write,
+		MaxConnAge:   maxConn,
+	}, nil
+}
+
 func init() {
 	rds = new(Rds)
 	rds.Map = make(map[string]*redis.ClusterClient)
@@ -47,8 +88,8 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 				return nil, fmt.Errorf("read redis config fail: %w", err)
 			}
 
-			var clusterConfig redis.ClusterOptions
-			err = conf.Get(srvName, "redis", name).Scan(&clusterConfig)
+			var redisConfig RedisConf
+			err = conf.Get(srvName, "redis", name).Scan(&redisConfig)
 			if err != nil {
 				hlp.RedisLog.WithFields(logrus.Fields{
 					"srv name":   srvName,
@@ -57,6 +98,15 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 				})
 				rds.Unlock()
 				return nil, fmt.Errorf("cluster config scan error: %w", err)
+			}
+
+			clusterConfig, err := redisConfig.clusterOptions()
+			if err != nil {
+				hlp.RedisLog.WithFields(logrus.Fields{
+					"cluster options error": err.Error(),
+				})
+				rds.Unlock()
+				return nil, fmt.Errorf("cluster config options error: %w", err)
 			}
 
 			rd = redis.NewClusterClient(&clusterConfig)
