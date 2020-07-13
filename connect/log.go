@@ -1,8 +1,8 @@
 package connect
 
 import (
-	"github.com/lifenglin/micro-library/helper"
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
+	"github.com/lifenglin/micro-library/helper"
 	"github.com/micro/go-micro/v2/config"
 	"github.com/rifflock/lfshook"
 	log "github.com/sirupsen/logrus"
@@ -35,7 +35,7 @@ func ConnectLog(srvName string) (err error) {
 		if err != nil {
 			if i == 2 {
 				//配置获取失败
-				log.Fatal(err)
+				log.Fatalf("读取consul配置错误: %s。如果在本地测试，可以使用sh import.sh导入配置到consul", err)
 			}
 			time.Sleep(time.Duration(5) * time.Second)
 		}
@@ -244,4 +244,3 @@ func ConnectStdLog(srvName string) (err error) {
 
 	return nil
 }
-
