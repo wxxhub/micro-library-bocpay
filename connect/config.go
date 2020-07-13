@@ -58,7 +58,7 @@ func ConnectConfig(srvName string, confName string) (config.Config, config.Watch
 					"name":  name,
 				}).Error("read config fail")
 				configs.Unlock()
-				return conf, nil, fmt.Errorf("read config fail: %w", err)
+				return conf, nil, fmt.Errorf("读取consul配置错误: %w。如果在本地测试，可以使用sh import.sh导入配置到consul", err)
 			}
 			//配置发生变化了 执行响应的操作
 			watcher, err := conf.Watch()
