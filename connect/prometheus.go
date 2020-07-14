@@ -23,26 +23,36 @@ func newRedisStats(srvName string, isCluster bool) *RedisStats {
 	} else {
 		prefix = "client_"
 	}
-	prefix += srvName + "_redis_"
+	prefix += "redis_"
+
+	label := map[string]string{
+		"service_name": srvName,
+	}
 
 	result := &RedisStats{
 		Hits: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prefix + "hits",
+			Name:        prefix + "hits",
+			ConstLabels: label,
 		}),
 		Misses: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prefix + "misses",
+			Name:        prefix + "misses",
+			ConstLabels: label,
 		}),
 		Timeouts: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prefix + "timeouts",
+			Name:        prefix + "timeouts",
+			ConstLabels: label,
 		}),
 		TotalConns: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prefix + "totalconnnes",
+			Name:        prefix + "totalconnnes",
+			ConstLabels: label,
 		}),
 		IdleConns: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prefix + "idleconns",
+			Name:        prefix + "idleconns",
+			ConstLabels: label,
 		}),
 		StaleConns: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prefix + "staleconnes",
+			Name:        prefix + "staleconnes",
+			ConstLabels: label,
 		}),
 	}
 
