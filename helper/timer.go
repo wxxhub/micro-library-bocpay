@@ -32,7 +32,7 @@ func (t *Timer) Duration(name string) time.Duration {
 	return t.duration[name].Duration()
 }
 
-func (t *Timer) Calculation() (map[string]string) {
+func (t *Timer) Calculation() map[string]string {
 	//转换时间格式
 	var strTimer = make(map[string]string)
 	var recordProfiler time.Duration

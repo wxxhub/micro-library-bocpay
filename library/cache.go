@@ -75,7 +75,7 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 				if err != nil {
 					log.WithFields(logrus.Fields{
 						"redisKey": redisKey,
-						"bytes":	bytes,
+						"bytes":    bytes,
 						"error":    err,
 					}).Warn("setLocal error")
 				}
@@ -85,7 +85,6 @@ func GetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 	}
 	return errors.New("redis: nil")
 }
-
 
 func MgetCache(ctx context.Context, hlp *helper.Helper, srvName string, name string, localCache bool, redisKey []string, value interface{}) (noCacheIndex []int, err error) {
 	slice := reflect.ValueOf(value)
@@ -166,7 +165,7 @@ func GetCacheNum(ctx context.Context, hlp *helper.Helper, srvName string, name s
 			if err != nil {
 				log.WithFields(logrus.Fields{
 					"redisKey": redisKey,
-					"num":	num,
+					"num":      num,
 					"error":    err,
 				}).Warn("setLocal error")
 			}
@@ -240,7 +239,7 @@ func SetCache(ctx context.Context, hlp *helper.Helper, srvName string, name stri
 			if err != nil {
 				log.WithFields(logrus.Fields{
 					"redisKey": redisKey,
-					"bytes":	redisBytes,
+					"bytes":    redisBytes,
 					"error":    err,
 				}).Warn("setLocal error")
 			}
@@ -281,7 +280,7 @@ func SetCacheNum(ctx context.Context, hlp *helper.Helper, srvName string, name s
 			if err != nil {
 				log.WithFields(logrus.Fields{
 					"redisKey": redisKey,
-					"bytes":	value,
+					"bytes":    value,
 					"error":    err,
 				}).Warn("setLocal error")
 			}
