@@ -53,7 +53,6 @@ type jsonCodec struct{}
 func (jsonCodec) Marshal(v interface{}) ([]byte, error) {
 	if pb, ok := v.(proto.Message); ok {
 		s, err := jsonpbMarshaler.MarshalToString(pb)
-		debug.PrintStack()
 		return []byte(s), err
 	}
 
