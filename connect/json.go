@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/micro/go-micro/v2/codec/bytes"
 	"google.golang.org/grpc/encoding"
-	"runtime/debug"
 
 	b "bytes"
 
