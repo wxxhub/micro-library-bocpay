@@ -14,6 +14,12 @@ import (
 
 type wrapCodec struct{ encoding.Codec }
 
+var jsonpbMarshaler = &jsonpb.Marshaler{
+	EnumsAsInts:  false,
+	EmitDefaults: true,
+	OrigName:     true,
+}
+
 func (w wrapCodec) String() string {
 	return w.Codec.Name()
 }
@@ -36,12 +42,6 @@ func (w wrapCodec) Unmarshal(data []byte, v interface{}) error {
 		return nil
 	}
 	return w.Codec.Unmarshal(data, v)
-}
-
-var jsonpbMarshaler = &jsonpb.Marshaler{
-	EnumsAsInts:  false,
-	EmitDefaults: true,
-	OrigName:     true,
 }
 
 func RegisterJSONCodec() {
