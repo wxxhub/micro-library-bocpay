@@ -59,6 +59,13 @@ func ConnectDB(ctx context.Context, hlp *helper.Helper, srvName string, name str
 			}
 			var clusterConfig mysqlClusterConfig
 			conf.Get(srvName, "database", name, cluster).Scan(&clusterConfig)
+			mysqlLog.WithFields(logrus.Fields{
+				"srvName": srvName,
+				"name":    name,
+				"cluster": cluster,
+				"dsn":     clusterConfig.Dsn,
+			}).Info("connect mysql info")
+
 			db, err = gorm.Open("mysql", clusterConfig.Dsn)
 			if err != nil {
 				mysqlLog.WithFields(logrus.Fields{
