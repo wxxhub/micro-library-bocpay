@@ -32,19 +32,19 @@ type RedisConf struct {
 func (rc RedisConf) clusterOptions() (redis.ClusterOptions, error) {
 	dial, err := time.ParseDuration(rc.DialTimeout)
 	if err != nil {
-		return redis.ClusterOptions{}, err
+		return redis.ClusterOptions{}, fmt.Errorf("dial timeout: %s", err)
 	}
 	read, err := time.ParseDuration(rc.ReadTimeout)
 	if err != nil {
-		return redis.ClusterOptions{}, err
+		return redis.ClusterOptions{}, fmt.Errorf("read timeout: %s", err)
 	}
 	write, err := time.ParseDuration(rc.WriteTimeout)
 	if err != nil {
-		return redis.ClusterOptions{}, err
+		return redis.ClusterOptions{}, fmt.Errorf("write timeout: %s", err)
 	}
 	maxConn, err := time.ParseDuration(rc.MaxConnAge)
 	if err != nil {
-		return redis.ClusterOptions{}, err
+		return redis.ClusterOptions{}, fmt.Errorf("max conn age: %s", err)
 	}
 
 	return redis.ClusterOptions{
@@ -103,6 +103,8 @@ func ConnectRedis(ctx context.Context, hlp *helper.Helper, srvName string, name 
 			clusterConfig, err := redisConfig.clusterOptions()
 			if err != nil {
 				hlp.RedisLog.WithFields(logrus.Fields{
+					"srv name":              srvName,
+					"redis name":            name,
 					"cluster options error": err.Error(),
 				}).Error("get cluster options: ", err)
 				rds.Unlock()
