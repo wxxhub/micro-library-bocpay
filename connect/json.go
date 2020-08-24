@@ -5,10 +5,7 @@ import (
 	"github.com/micro/go-micro/v2/codec/bytes"
 	"google.golang.org/grpc/encoding"
 
-	b "bytes"
-
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 )
 
 type wrapCodec struct{ encoding.Codec }
@@ -50,10 +47,10 @@ func RegisterJSONCodec() {
 type jsonCodec struct{}
 
 func (jsonCodec) Marshal(v interface{}) ([]byte, error) {
-	if pb, ok := v.(proto.Message); ok {
-		s, err := jsonpbMarshaler.MarshalToString(pb)
-		return []byte(s), err
-	}
+	//if pb, ok := v.(proto.Message); ok {
+	//	s, err := jsonpbMarshaler.MarshalToString(pb)
+	//	return []byte(s), err
+	//}
 
 	return json.Marshal(v)
 }
@@ -62,9 +59,9 @@ func (jsonCodec) Unmarshal(data []byte, v interface{}) error {
 	if len(data) == 0 {
 		return nil
 	}
-	if pb, ok := v.(proto.Message); ok {
-		return jsonpb.Unmarshal(b.NewReader(data), pb)
-	}
+	//if pb, ok := v.(proto.Message); ok {
+	//	return jsonpb.Unmarshal(b.NewReader(data), pb)
+	//}
 	return json.Unmarshal(data, v)
 }
 
