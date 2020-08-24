@@ -1,4 +1,4 @@
-package connect
+package json
 
 import (
 	b "bytes"
