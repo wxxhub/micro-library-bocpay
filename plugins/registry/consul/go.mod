@@ -1,4 +1,4 @@
-module github.com/lifenglin/micro-library/consul/v2
+module github.com/lifenglin/micro-library/plugins/registry/consul/v2
 
 go 1.13
 

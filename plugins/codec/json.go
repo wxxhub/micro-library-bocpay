@@ -1,11 +1,12 @@
 package connect
 
 import (
+	b "bytes"
 	"encoding/json"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/micro/go-micro/v2/codec/bytes"
 	"google.golang.org/grpc/encoding"
-
-	"github.com/golang/protobuf/jsonpb"
 )
 
 type wrapCodec struct{ encoding.Codec }
@@ -59,9 +60,9 @@ func (jsonCodec) Unmarshal(data []byte, v interface{}) error {
 	if len(data) == 0 {
 		return nil
 	}
-	//if pb, ok := v.(proto.Message); ok {
-	//	return jsonpb.Unmarshal(b.NewReader(data), pb)
-	//}
+	if pb, ok := v.(proto.Message); ok {
+		return jsonpb.Unmarshal(b.NewReader(data), pb)
+	}
 	return json.Unmarshal(data, v)
 }
 
