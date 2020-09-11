@@ -217,6 +217,199 @@ func (this *BocpayClient) QuickPay(quickPay *BocpayQuickPay) error {
 	return err
 }
 
+// 创建订单
+func (this *BocpayClient) TradeCreate(transAmount string) {
+	data := url.Values{}
+	// 固定参数，后面通过config统一配置
+	data.Set("version", "V1.0")
+	data.Set("transId", "106")
+	data.Set("accessNo", "20201804120000018121")
+	data.Set("signType", "RSA2")
+	data.Set("userId", "userId")			//当productId=1053时必填买家的支付宝唯一用户号
+	data.Set("storeId" , "NJ-001") 		//根据自身业务场景填写，商户门店编号
+	data.Set("terminalId", "NJ-T-001") 	//根据自身业务场景填写，商户机具编号
+	data.Set("productId", "1053") 		 //产品类型
+	data.Set("mchNo", "850780641001001") 	 //商户号
+	data.Set("goodsSubject", "测试交易商品") //商品订单标题
+	data.Set("notifyUrl", "后面加") 	// 异步通知地址
+	data.Set("webNotifyUrl", "后面加") //页面通知地址
+
+	// 生成的参数
+	data.Set("requestNo", this.getRequestNo())
+	data.Set("transDate", "格式yyyyMMdd")	 //交易日期， 需要返回
+	data.Set("outTransNo", "outTransNo")		 //商户订单号，需保证商户端不重复， 需要返回
+
+	// 需要传入的参数
+	data.Set("transAmount", transAmount)
+
+	// 添加签名
+	signature, _ := this.getSignature([]byte(data.Encode()))
+	data.Set("signature", signature)
+
+	// 发起请求
+	postUrl := "http://183.62.24.78:3060/gateway/api/downloadbill"
+
+	resultStr, _ := this.send(postUrl, data.Encode())
+
+	result := make(map[string]string, 10)
+	json.Unmarshal([]byte(resultStr), &result)
+	resSignature := ""
+	if value, ok := result["signature"]; ok {
+		resSignature = value
+		delete(result, "signature")
+	}
+	fmt.Println("result: ", result)
+
+	res := url.Values{}
+	for key, value := range result {
+		res.Set(key, value)
+	}
+
+	err := this.verifySignature(this.platformPublicKey, []byte(res.Encode()), resSignature)
+
+	if nil == err {
+		fmt.Println("success.")
+	}
+
+	// 返回，transDate， outTransNo，
+}
+
+// 订单查询
+func (this *BocpayClient) TradeQuery(oriTransDate, oriOutTransNo string) {
+	data := url.Values{}
+	// 固定参数，后面通过config统一配置
+	data.Set("version", "V1.0")
+	data.Set("transId", "101")
+	data.Set("accessNo", "20201804120000018121")
+	data.Set("signType", "RSA2")
+	data.Set("mchNo", "850780641001001") 	 //商户号
+	data.Set("notifyUrl", "后面加") 	// 异步通知地址
+	data.Set("webNotifyUrl", "后面加") //页面通知地址
+
+	// 生成的参数
+	data.Set("requestNo", this.getRequestNo())
+
+	// 传入参数
+	data.Set("oriTransDate", oriTransDate)		//原交易订单日期yyyyMMdd
+	data.Set("oriOutTransNo", oriOutTransNo)	//原商户交易订单号，二选一，到时候看用哪个。
+	data.Set("refundNo", "refundNo")	//原商户交易订单号，二选一，到时候看用哪个。
+
+	// 添加签名
+	signature, _ := this.getSignature([]byte(data.Encode()))
+	data.Set("signature", signature)
+}
+
+// 取消订单
+func (this *BocpayClient) TradeCancel(oriTransDate, oriOutTransNo string) {
+	data := url.Values{}
+	// 固定参数，后面通过config统一配置
+	data.Set("version", "V1.0")
+	data.Set("transId", "103")
+	data.Set("accessNo", "20201804120000018121")
+	data.Set("signType", "RSA2")
+	data.Set("mchNo", "850780641001001") 	 //商户号
+	data.Set("notifyUrl", "后面加") 	// 异步通知地址
+	data.Set("webNotifyUrl", "后面加") //页面通知地址
+
+	// 生成的参数
+	data.Set("requestNo", this.getRequestNo())
+	data.Set("transDate", "格式yyyyMMdd")	 //交易日期， 需要返回
+	data.Set("outTransNo", "outTransNo")		 //商户订单号，需保证商户端不重复， 需要返回
+
+	// 传入参数
+	data.Set("oriTransDate", oriTransDate)		//原交易订单日期yyyyMMdd
+	data.Set("oriOutTransNo", oriOutTransNo)	//原商户交易订单号
+
+	// 添加签名
+	signature, _ := this.getSignature([]byte(data.Encode()))
+	data.Set("signature", signature)
+}
+
+// 关闭订单
+func (this *BocpayClient) TradeClose(oriTransDate, oriOutTransNo string) {
+	data := url.Values{}
+	// 固定参数，后面通过config统一配置
+	data.Set("version", "V1.0")
+	data.Set("transId", "104")
+	data.Set("accessNo", "20201804120000018121")
+	data.Set("signType", "RSA2")
+	data.Set("mchNo", "850780641001001") 	 //商户号
+	data.Set("notifyUrl", "后面加") 	// 异步通知地址
+	data.Set("webNotifyUrl", "后面加") //页面通知地址
+
+	// 生成的参数
+	data.Set("requestNo", this.getRequestNo())
+	data.Set("transDate", "格式yyyyMMdd")	 //交易日期， 需要返回
+	data.Set("outTransNo", "outTransNo")		 //商户订单号，需保证商户端不重复， 需要返回
+
+	// 传入参数
+	data.Set("oriTransDate", oriTransDate)		//原交易订单日期yyyyMMdd
+	data.Set("oriOutTransNo", oriOutTransNo)	//原商户交易订单号
+
+	// 添加签名
+	signature, _ := this.getSignature([]byte(data.Encode()))
+	data.Set("signature", signature)
+}
+
+// 退款
+func (this *BocpayClient) TradeRefund(oriTransDate, oriOutTransNo, transAmount, refundReason string) {
+	data := url.Values{}
+	// 固定参数，后面通过config统一配置
+	data.Set("version", "V1.0")
+	data.Set("transId", "102")
+	data.Set("accessNo", "20201804120000018121")
+	data.Set("signType", "RSA2")
+	data.Set("mchNo", "850780641001001") 	 //商户号
+	data.Set("notifyUrl", "后面加") 	// 异步通知地址
+	data.Set("webNotifyUrl", "后面加") //页面通知地址
+
+	// 生成的参数
+	data.Set("requestNo", this.getRequestNo())
+	data.Set("transDate", "格式yyyyMMdd")	 //交易日期， 需要返回
+	data.Set("outTransNo", "outTransNo")		 //商户订单号，需保证商户端不重复， 需要返回
+
+	// 传入参数
+	data.Set("oriTransDate", oriTransDate)		//原交易订单日期yyyyMMdd
+	data.Set("oriOutTransNo", oriOutTransNo)	//原商户交易订单号
+	data.Set("transAmount", transAmount)	//退款金额
+	data.Set("refundReason", refundReason)	//退款原因
+
+	// 添加签名
+	signature, _ := this.getSignature([]byte(data.Encode()))
+	data.Set("signature", signature)
+}
+
+// 接收支付成功的异步通知， 不一定放在这里
+func (this *BocpayClient) TradeNotify() {
+	
+}
+
+// 测试发布异步通知, 用来测试TradeNotify
+func (this *BocpayClient) TestTradeNotify() {
+	data := url.Values{}
+	// 固定参数，后面通过config统一配置
+	data.Set("version", "V1.0")
+	data.Set("transId", "103")
+	data.Set("accessNo", "20201804120000018121")
+	data.Set("signType", "RSA2")
+	data.Set("mchNo", "850780641001001") 	 //商户号
+	data.Set("notifyUrl", "后面加") 	// 异步通知地址
+	data.Set("webNotifyUrl", "后面加") //页面通知地址
+
+	// 生成的参数
+	data.Set("requestNo", this.getRequestNo())
+	data.Set("transDate", "格式yyyyMMdd")	 //交易日期， 需要返回
+	data.Set("outTransNo", "outTransNo")		 //商户订单号，需保证商户端不重复， 需要返回
+
+	data.Set("orderId", "20180529000121105200000272")
+	data.Set("payTime", "20180529160952")
+	data.Set("productId", "1052")
+	data.Set("respCode", "0000")
+	data.Set("respDesc", "成功")
+	data.Set("transAmount", "10")
+	data.Set("payNo", "payNo") // 平台支付订单号
+}
+
 // 加载后端似钥
 func (this *BocpayClient) LoadAccessPrivateKey(data []byte) error {
 	var err error
@@ -366,7 +559,6 @@ func (this *BocpayClient) aecDecryptECB(data, key []byte) []byte {
 
 	return decrypted[:trim]
 }
-
 
 // 临时读取，后期换成微服务config
 func getCertifyData(file string) ([]byte, error) {
