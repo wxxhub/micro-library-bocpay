@@ -217,7 +217,7 @@ func (this *BocpayClient) QuickPay(quickPay *BocpayQuickPay) error {
 	return err
 }
 
-// 创建订单
+// 创建订单, 需要返回交易日期，订单号
 func (this *BocpayClient) TradeCreate(transAmount string) {
 	data := url.Values{}
 	// 固定参数，后面通过config统一配置
@@ -274,7 +274,7 @@ func (this *BocpayClient) TradeCreate(transAmount string) {
 	// 返回，transDate， outTransNo，
 }
 
-// 订单查询
+// 订单查询， 需要返回订单信息
 func (this *BocpayClient) TradeQuery(oriTransDate, oriOutTransNo string) {
 	data := url.Values{}
 	// 固定参数，后面通过config统一配置
@@ -291,16 +291,16 @@ func (this *BocpayClient) TradeQuery(oriTransDate, oriOutTransNo string) {
 
 	// 传入参数
 	data.Set("oriTransDate", oriTransDate)		//原交易订单日期yyyyMMdd
-	data.Set("oriOutTransNo", oriOutTransNo)	//原商户交易订单号，二选一，到时候看用哪个。
-	data.Set("refundNo", "refundNo")	//原商户交易订单号，二选一，到时候看用哪个。
+	data.Set("oriOutTransNo", oriOutTransNo)	//原商户交易订单号，二选一。
+	data.Set("refundNo", "refundNo")		//退款订单号，二选一。
 
 	// 添加签名
 	signature, _ := this.getSignature([]byte(data.Encode()))
 	data.Set("signature", signature)
 }
 
-// 取消订单
-func (this *BocpayClient) TradeCancel(oriTransDate, oriOutTransNo string) {
+// 取消订单， 返回应答报文和错误信息
+func (this *BocpayClient) TradeCancel(oriTransDate, oriOutTransNo string) (string, error) {
 	data := url.Values{}
 	// 固定参数，后面通过config统一配置
 	data.Set("version", "V1.0")
@@ -323,10 +323,12 @@ func (this *BocpayClient) TradeCancel(oriTransDate, oriOutTransNo string) {
 	// 添加签名
 	signature, _ := this.getSignature([]byte(data.Encode()))
 	data.Set("signature", signature)
+
+	return "", nil
 }
 
-// 关闭订单
-func (this *BocpayClient) TradeClose(oriTransDate, oriOutTransNo string) {
+// 关闭订单， 返回应答报文和错误信息
+func (this *BocpayClient) TradeClose(oriTransDate, oriOutTransNo string) (string, error) {
 	data := url.Values{}
 	// 固定参数，后面通过config统一配置
 	data.Set("version", "V1.0")
@@ -349,10 +351,12 @@ func (this *BocpayClient) TradeClose(oriTransDate, oriOutTransNo string) {
 	// 添加签名
 	signature, _ := this.getSignature([]byte(data.Encode()))
 	data.Set("signature", signature)
+
+	return "", nil
 }
 
-// 退款
-func (this *BocpayClient) TradeRefund(oriTransDate, oriOutTransNo, transAmount, refundReason string) {
+// 退款， 返回应答报文和错误信息
+func (this *BocpayClient) TradeRefund(oriTransDate, oriOutTransNo, transAmount, refundReason string) (string, error) {
 	data := url.Values{}
 	// 固定参数，后面通过config统一配置
 	data.Set("version", "V1.0")
@@ -377,6 +381,8 @@ func (this *BocpayClient) TradeRefund(oriTransDate, oriOutTransNo, transAmount, 
 	// 添加签名
 	signature, _ := this.getSignature([]byte(data.Encode()))
 	data.Set("signature", signature)
+
+	return "", nil
 }
 
 // 接收支付成功的异步通知， 不一定放在这里
