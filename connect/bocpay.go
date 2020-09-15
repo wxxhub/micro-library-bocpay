@@ -2,16 +2,16 @@ package connect
 
 import (
 	"crypto"
-	"crypto/aes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"github.com/micro/go-micro/v2/errors"
+	"github.com/tidwall/gjson"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -20,62 +20,303 @@ import (
 	"time"
 )
 
+const(
+	TimeFormat 		= "20060102"
+	PostContentType = "application/x-www-form-urlencoded;charset=utf-8"
+	PostConnection 	= "close"
+
+	TradeTestUrl 			= "http://183.62.24.78:3060/gateway/api/consumeTrans"	// 测试环境请求地址
+	TradeProductionUrl 		= "https://paygate.efton.net/gateway/api/consumeTrans"	// 生产环境请求地址
+	ManageTestUrl 			= "http://183.62.24.78:3060/gateway/api/merchant"	// 测试环境请求地址
+	ManageProductionUrl 	= "https://paygate.efton.net/gateway/api/merchant"	// 生产环境请求地址
+	DownloadTestUrl 		= "http://183.62.24.78:3060/gateway/api/downloadbill"	// 测试环境请求地址
+	DownloadProductionUrl 	= "https://paygate.efton.net/gateway/api/downloadbill"	// 生产环境请求地址
+)
+
+type BocpayConfig struct {
+	Version			string	`json:"version"`	// 接口版本号
+	AccessNo		string	`json:"accessNo"`	// 接入机构号
+	SignType		string	`json:"signType"`	// 签名算法
+	UserId			string	`json:"userId"`		// 支付宝用户号
+	StoreId			string	`json:"storeId"`	// 支付宝用户号
+	TerminalId		string	`json:"terminalId"`	// 支付宝商户机具终端编号
+	MchNo			string	`json:"mchNo"`		// 商户号
+	AccessPrvKey	string	`json:"access-prv-key"`		// 后端私钥
+	AccessPubKey	string	`json:"access-pub-key"`		// 后端公钥
+	PlatformPubKey	string	`json:"platform-pub-key"`	// 支付平台公钥
+}
+
 type BocpayClient struct {
-	mu 			sync.Mutex
-	Client 		*http.Client
-	location 	*time.Location
+	mu 				sync.Mutex
+	httpClient 		*http.Client
+	location 		*time.Location
+	bocpayConfig 	*BocpayConfig
+	isProduction 	bool
+	tradeUrl		string  // 交易类接口地址
+	manageUrl		string  // 管理类接口地址
+	downloadUrl 	string	// 文件交易类型接口地址
 
 	accessPrivateKey	*rsa.PrivateKey // 后端私钥
 	accessPublicKey		*rsa.PublicKey 	// 后端发布的公钥
 	platformPublicKey 	*rsa.PublicKey  // 中国银行支付平台私钥
 }
 
-type BocpayCardInfo struct {
-	CardNo		string	`json:"cardNo"`
-	CardHolder	string	`json:"cardHolder"`
-	CardId		string	`json:"cardId"`
-	CardPhone	string	`json:"cardPhone"`
-	CardPeriod	string	`json:"cardPeriod"`
-	CardCVN2	string	`json:"cardCVN2"`
+type TradeCreate struct {
+	TransAmount  string // 交易额
+	OutTransNo   string // 订单号
+	GoodsSubject string // 商品订单标题
+	NotifyUrl 	 string // 异步通知地址
 }
 
-type BocpayAddress struct {
-	Longitude 	string	`json:"longitude"`
-	Latitude 	string	`json:"latitude"`
+type TradeQuery struct {
+	OriTransData  string // 原订单日期yyyyMMdd
+	OriOutTransNo string // 原商户交易订单号。二选一
+	RefundNo	  string // 平台退款订单号。二选一， 退款选退款订单号
+	NotifyUrl 	  string // 异步通知地址
 }
 
-type BocpayQuickPay struct {
-	TransAmount string
-	CardInfo 	*BocpayCardInfo
-	Address 	*BocpayAddress
+type TradeCancel struct {
+	OriTransData  string // 原订单日期yyyyMMdd
+	OriOutTransNo string // 原商户交易订单号
+	OutTransNo    string // 订单号
+	NotifyUrl 	  string // 异步通知地址
 }
+
+type TradeClose struct {
+	OriTransData  string // 原订单日期yyyyMMdd
+	OriOutTransNo string // 原商户交易订单号
+	OutTransNo    string // 订单号
+	NotifyUrl 	  string // 异步通知地址
+}
+
+type TradeRefund struct {
+	OriTransData  string // 原订单日期yyyyMMdd
+	OriOutTransNo string // 原商户交易订单号
+	TransAmount	  string // 退款金额
+	TransReason	  string // 退款原因
+	OutTransNo    string // 订单号
+	NotifyUrl 	  string // 异步通知地址
+}
+
+type PromotionDetail struct {
+	DiscountName 	string `json:"discountName"` 	// 优惠活动名称
+	DiscountNumber 	string `json:"discountNumber"` 	// 优惠活动卷号
+	GoodsTag 		string `json:"goodsTag"` 		// 优惠标识
+	DiscountAmount 	string `json:"discountAmount"` 	// 优惠金额
+	PaymentAmount 	string `json:"paymentAmount"` 	// 优惠活动名称
+}
+
+type TradeCreateRsp struct {
+	RequestNo		string `json:"requestNo"`		// 请求流水号
+	Version			string `json:"version"`	  		// 版本号
+	AccessNo		string `json:"accessNo"`	  	// 接入机构号
+	TransId			string `json:"transId"`	  		// 交易类型
+	SignType		string `json:"signType"`	 	// 签名算法
+	Signature		string `json:"signature"`	 	// 签名数据
+	ProductId		string `json:"productId"`	 	// 产品类型
+	MchNo			string `json:"mchNo"`		 	// 商户号
+	TransDate		string `json:"transDate"`	 	// 交易日期
+	OutTransNo		string `json:"outTransNo"`		// 商户订单号
+	ReturnCode		string `json:"returnCode"`		// 网关应答码
+	ReturnMsg		string `json:"returnMsg"`		// 网关应答码描述
+	ResultCode		string `json:"resultCode"`		// 业务应答码
+	ResultMsg		string `json:"resultMsg"`	 	// 业务应答码描述
+	ResultSubMsg	string `json:"resultSubMsg"`	// 业务应答码描述明细
+	AlipayTradeNo	string `json:"alipayTradeNo"`	// 支付宝支付窗交易号
+	BankType		string `json:"bankType"`		// 付款银行
+	BankUserId		string `json:"bankUserId"`		// 用户标识
+	TransNo			string `json:"transNo"`			// 平台商户订单号
+	PayNo			string `json:"payNo"`			// 平台支付订单号
+	PayTime			string `json:"payTime"`			// 支付完成时间
+	BankTradeNo		string `json:"bankTradeNo"`		// 银行订单号
+	PromotionDetail	PromotionDetail `json:"promotionDetail"`	// 优惠明细
+}
+
+type TradeQueryRsp struct {
+	RequestNo		string `json:"requestNo"`		// 请求流水号
+	Version			string `json:"version"`	  		// 版本号
+	AccessNo		string `json:"accessNo"`	  	// 接入机构号
+	TransId			string `json:"transId"`	  		// 交易类型
+	SignType		string `json:"signType"`	 	// 签名算法
+	Signature		string `json:"signature"`	 	// 签名数据
+	MchNo			string `json:"mchNo"`		 	// 商户号
+	TransAmount		string `json:"transAmount"`	 	// 交易金额
+	OrderState		string `json:"orderState"`	 	// 订单状态
+	RefundJson		string `json:"refundJson"`	 	// 退款详情
+	TransNo			string `json:"transNo"`			// 平台商户订单号
+	BankUserId		string `json:"bankUserId"`		// 用户标识, 支付宝返回userId
+	BankTradeNo		string `json:"bankTradeNo"`		// 银行订单号, 目前返回微信/支付宝渠道订单号
+	ReturnCode		string `json:"returnCode"`		// 网关应答码
+	ReturnMsg		string `json:"returnMsg"`		// 网关应答码描述
+	ResultCode		string `json:"resultCode"`		// 业务应答码
+	ResultMsg		string `json:"resultMsg"`	 	// 业务应答码描述
+	ResultSubMsg	string `json:"resultSubMsg"`	// 业务应答码描述明细
+	PromotionDetail	PromotionDetail `json:"promotionDetail"`	// 优惠明细
+}
+
+type TradeCancelRsp struct {
+	RequestNo		string `json:"requestNo"`		// 请求流水号
+	Version			string `json:"version"`	  		// 版本号
+	AccessNo		string `json:"accessNo"`	  	// 接入机构号
+	TransId			string `json:"transId"`	  		// 交易类型
+	SignType		string `json:"signType"`	 	// 签名算法
+	Signature		string `json:"signature"`	 	// 签名数据
+	MchNo			string `json:"mchNo"`		 	// 商户号
+	TransDate		string `json:"transDate"`	 	// 订单日期，商户交易订单日期yyyyMMdd
+	OutTransNo		string `json:"outTransNo"`	 	// 商户订单号
+	BankTradeNo		string `json:"bankTradeNo"`	 	// 银行订单号,目前返回微信/支付宝渠道订单号
+	ReturnCode		string `json:"returnCode"`		// 网关应答码
+	ReturnMsg		string `json:"returnMsg"`		// 网关应答码描述
+	ResultCode		string `json:"resultCode"`		// 业务应答码
+	ResultMsg		string `json:"resultMsg"`	 	// 业务应答码描述
+	ResultSubMsg	string `json:"resultSubMsg"`	// 业务应答码描述明细
+}
+
+type TradeCloseRsp struct {
+	RequestNo		string `json:"requestNo"`		// 请求流水号
+	Version			string `json:"version"`	  		// 版本号
+	AccessNo		string `json:"accessNo"`	  	// 接入机构号
+	TransId			string `json:"transId"`	  		// 交易类型
+	SignType		string `json:"signType"`	 	// 签名算法
+	Signature		string `json:"signature"`	 	// 签名数据
+	MchNo			string `json:"mchNo"`		 	// 商户号
+	TransDate		string `json:"transDate"`	 	// 订单日期，商户交易订单日期yyyyMMdd
+	OutTransNo		string `json:"outTransNo"`	 	// 商户订单号
+	ReturnCode		string `json:"returnCode"`		// 网关应答码
+	ReturnMsg		string `json:"returnMsg"`		// 网关应答码描述
+	ResultCode		string `json:"resultCode"`		// 业务应答码
+	ResultMsg		string `json:"resultMsg"`	 	// 业务应答码描述
+	ResultSubMsg	string `json:"resultSubMsg"`	// 业务应答码描述明细
+}
+
+// 注意：优惠订单不允许进行部分退款
+type TradeRefundRsp struct {
+	RequestNo		string `json:"requestNo"`		// 请求流水号
+	Version			string `json:"version"`	  		// 版本号
+	AccessNo		string `json:"accessNo"`	  	// 接入机构号
+	TransId			string `json:"transId"`	  		// 交易类型
+	SignType		string `json:"signType"`	 	// 签名算法
+	Signature		string `json:"signature"`	 	// 签名数据
+	MchNo			string `json:"mchNo"`		 	// 商户号
+	TransDate		string `json:"transDate"`	 	// 订单日期，商户交易订单日期yyyyMMdd
+	OutTransNo		string `json:"outTransNo"`	 	// 商户订单号
+	TransAmount		string `json:"transAmount"`	 	// 交易金额
+	RefundReason	string `json:"refundReson"`	 	// 退货原因
+	TransNo			string `json:"transNo"`			// 平台退款订单号
+	BankTradeNo		string `json:"bankTradeNo"`		// 银行订单号, 目前返回微信/支付宝渠道订单号
+	ReturnCode		string `json:"returnCode"`		// 网关应答码
+	ReturnMsg		string `json:"returnMsg"`		// 网关应答码描述
+	ResultCode		string `json:"resultCode"`		// 业务应答码
+	ResultMsg		string `json:"resultMsg"`	 	// 业务应答码描述
+	ResultSubMsg	string `json:"resultSubMsg"`	// 业务应答码描述明细
+}
+
+type DownloadBillRsp struct {
+	ReturnCode	string `json:"returnCode"`	// 网关应答码
+	ReturnMsg	string `json:"returnMsg"`	// 网关应答码描述
+	BillData	string `json:"billData"`	// 对账文件内容,Base64编码后文件内容。需Base64解码
+}
+
+var bocpayClient *BocpayClient
 
 func ConnectBocpay(srvName string, confName string) (*BocpayClient, error) {
-	fmt.Println(srvName, confName)
-	client := new(BocpayClient)
-
-	accessPrivateCertify, err := getCertifyData("/Users/wxx/wxx_nice/dev_test/key/access-prv-key.pem")
-	if err != nil {
-		return nil, err
-	}
-	accessPublicCertify, err := getCertifyData("/Users/wxx/wxx_nice/dev_test/key/access-pub-key.pem")
-	if err != nil {
-		return nil, err
-	}
-	platformPublicCertify, err := getCertifyData("/Users/wxx/wxx_nice/dev_test/key/platform-pub-key.pem")
-	if err != nil {
-		return nil, err
+	if bocpayClient != nil {
+		return bocpayClient, nil
 	}
 
-	err = client.LoadAccessPrivateKey(accessPrivateCertify)
+	conf, _, err := ConnectConfig(srvName, confName)
+	if err != nil {
+		return nil, errors.InternalServerError(srvName, "read bocpay config fail: %v", err.Error())
+	}
+
+	config := new(BocpayConfig)
+
+	// 直接解析会出现参数不全的情况，不采用
+	//err = conf.Get(srvName, confName).Scan(config)
+
+	config.Version = conf.Get(srvName, confName, "version").String("")
+	if config.Version == "" {
+		return nil, errors.InternalServerError(srvName, "version is empty")
+	}
+	config.AccessNo = conf.Get(srvName, confName, "accessNo").String("")
+	if config.AccessNo == "" {
+		return nil, errors.InternalServerError(srvName, "accessNo is empty")
+	}
+	config.SignType = conf.Get(srvName, confName, "signType").String("")
+	if config.SignType == "" {
+		return nil, errors.InternalServerError(srvName, "signType is empty")
+	}
+	config.UserId = conf.Get(srvName, confName, "userId").String("")
+	if config.UserId == "" {
+		return nil, errors.InternalServerError(srvName, "userId is empty")
+	}
+	config.StoreId = conf.Get(srvName, confName, "storeId").String("")
+	if config.StoreId == "" {
+		return nil, errors.InternalServerError(srvName, "storeId is empty")
+	}
+	config.TerminalId = conf.Get(srvName, confName, "terminalId").String("")
+	if config.TerminalId == "" {
+		return nil, errors.InternalServerError(srvName, "terminalId is empty")
+	}
+	config.MchNo = conf.Get(srvName, confName, "mchNo").String("")
+	if config.MchNo == "" {
+		return nil, errors.InternalServerError(srvName, "mchNo is empty")
+	}
+	config.AccessPrvKey = conf.Get(srvName, confName, "access-prv-key").String("")
+	if config.AccessPrvKey == "" {
+		return nil, errors.InternalServerError(srvName, "access-prv-key is empty")
+	}
+	config.AccessPubKey = conf.Get(srvName, confName, "access-pub-key").String("")
+	if config.AccessPubKey == "" {
+		return nil, errors.InternalServerError(srvName, "access-pub-key is empty")
+	}
+	config.PlatformPubKey = conf.Get(srvName, confName, "platform-pub-key").String("")
+	if config.PlatformPubKey == "" {
+		return nil, errors.InternalServerError(srvName, "platform-pub-key is empty")
+	}
+
+	isProduction := conf.Get(srvName, confName, "isProduction").Bool(false)
+
+	bocpayClient, err = New(config, isProduction)
 	if err != nil {
 		return nil, err
 	}
-	err = client.LoadAccessPublicKey(accessPublicCertify)
+
+	return bocpayClient, nil
+}
+
+func New(config *BocpayConfig, isProduction bool) (client *BocpayClient, err error) {
+	client = new(BocpayClient)
+	client.isProduction = isProduction
+	client.bocpayConfig = config
+	client.httpClient = http.DefaultClient
+
+	client.location, err = time.LoadLocation("Asia/Chongqing")
+
+	if nil != err {
+		return nil, err
+	}
+
+	if client.isProduction {
+		client.tradeUrl 	= TradeProductionUrl
+		client.manageUrl 	= ManageProductionUrl
+		client.downloadUrl 	= DownloadProductionUrl
+	} else {
+		client.tradeUrl 	= TradeTestUrl
+		client.manageUrl 	= ManageTestUrl
+		client.downloadUrl 	= DownloadTestUrl
+	}
+
+	// 加载Key
+	err = client.LoadAccessPrivateKey(config.AccessPrvKey)
 	if err != nil {
 		return nil, err
 	}
-	err = client.LoadPlatformPublicKey(platformPublicCertify)
+	err = client.LoadAccessPublicKey(config.AccessPubKey)
+	if err != nil {
+		return nil, err
+	}
+	err = client.LoadPlatformPublicKey(config.PlatformPubKey)
 	if err != nil {
 		return nil, err
 	}
@@ -107,287 +348,217 @@ func (this *BocpayClient) Test(item int)  {
 		fmt.Println()
 		break
 	}
-	case 2: {
-		fmt.Println("aecEncrypt加密、解密。")
-		key, _ := hex.DecodeString("50505F7C20251286AA92A501BC0415E4")
-		encry := this.aecEncryptECB([]byte("test"), key)
-		fmt.Println("aecEncryptECB encry: ", hex.EncodeToString(encry))
-		decry := this.aecDecryptECB(encry, key)
-		fmt.Println("aecEncryptECB decry: ", string(decry))
-
-		demoStr := "232eb3893aee65e1ee99c3fc3c36d061b0b7c62cae1dd3e250e69ba0183bf4f1343a32e8ab687031b910f43d2f027eb96fdd2138c603ea5505905af71a21438fd2323609b18956ff781de9b2e9b58623a5b3f7bde46f71cf1d2639f6a161d9ee0a41b3477e6c3b8ae171f3bbc885fa4796404856406702ad665aecab54f079d202ec913fea3a1bc310f48a3153417be287a2ce96fff50b14111e0e278361de08"
-		demoByte, _ := hex.DecodeString(demoStr)
-		decry = this.aecDecryptECB(demoByte, key)
-		fmt.Println("aecEncryptECB demo decry: ", string(decry))
-		fmt.Println()
-		break
 	}
-		
-	}
-	/*
-	// 验证支付平台的签名， 公钥不对
-	data := "returnCode=0045&returnMsg=接入机构号错误"
-	signature := "cNHIgSvUgqWWt3OJEM//EohxAP8gG5qrkCy6Iz+eUJS+NQo/N5dQiBmofSWyPyttns8Ysz/lLo7OOrmQmmUpC7zvB0Hde2EOcPrXaWvD0s+/FEIZvi89r0esG8iaopD6A+g2axfGioVbAkhCd57m/aj5rHu6ld/58UivozuTpHwHSs8xuU6HQ/yDJJU9GmUD8IoLrDYBKZZRVRSQzTXtzwkpKmlWOXZ0vgxmc8fXiIBrGfkkAeTCp94Dasx2jhWaKXVQrX9wwzdtwMZTzigFQsFIPaFWOv8zduImJMfBK7N1EpMR9o9zFkOdbxGbPTiMndLXMuIETUa8h83RWfDs3Q=="
-	pubKey, _ := getPlatformPublicKey()
-	fmt.Println(verifySignature(pubKey, []byte(data), signature))
-	//*/
-
-}
-
-func (this *BocpayClient) New() {
-
 }
 
 // 下载对账单
-func (this *BocpayClient) DownloadBill(bill string) {
+func (this *BocpayClient) DownloadBill(bill string) (*DownloadBillRsp, error) {
 	data := url.Values{}
-	data.Set("requestNo", this.getRequestNo())
-	data.Set("version", "V1.0")
+	// 固定，一般不会改
 	data.Set("transId", "105")
-	data.Set("accessNo", "20201804120000018121")
-	data.Set("signType", "RSA2")
-	data.Set("billDate", bill)
-	signature, _ := this.getSignature([]byte(data.Encode()))
-	data.Set("signature", signature)
 
-	postUrl := "http://183.62.24.78:3060/gateway/api/downloadbill"
-
-	resultStr, _ := this.send(postUrl, data.Encode())
-
-	result := make(map[string]string, 10)
-	json.Unmarshal([]byte(resultStr), &result)
-	resSignature := ""
-	if value, ok := result["signature"]; ok {
-		resSignature = value
-		delete(result, "signature")
-	}
-	fmt.Println("result: ", result)
-
-	res := url.Values{}
-	for key, value := range result {
-		res.Set(key, value)
-	}
-
-	err := this.verifySignature(this.platformPublicKey, []byte(res.Encode()), resSignature)
-
-	if nil == err {
-		fmt.Println("success.")
-	}
-}
-
-// 快捷支付
-func (this *BocpayClient) QuickPay(quickPay *BocpayQuickPay) error {
-	aecKey, _ := hex.DecodeString("50505F7C20251286AA92A501BC0415E4")
-
-	cardInfo, err := json.Marshal(quickPay.CardInfo)
-	if nil != err {
-		fmt.Println("Marshal cardInfo failed")
-		return err
-	}
-
-	address, err := json.Marshal(quickPay.Address)
-	if nil != err {
-		fmt.Println("Marshal address failed")
-		return err
-	}
-
-	data := url.Values{}
-	data.Set("requestNo", this.getRequestNo())
-	data.Set("version", "V1.0")
-	data.Set("transId", "106")
-	data.Set("accessNo", "20201804120000018121")
-	data.Set("signType", "RSA2")
-
-	data.Set("productId", "1101") 		 //产品类型
-	data.Set("mchNo", "850780641001001") 	 //商户号
-	data.Set("transDate", "格式yyyyMMdd")	 //交易日期
-	data.Set("outTransNo", "RSA2")		 //商户订单号，需保证商户端不重复
-	data.Set("goodsSubject", "测试交易商品") //商品订单标题
-
-	data.Set("notifyUrl", "后面加") 	// 异步通知地址
-	data.Set("webNotifyUrl", "后面加") //页面通知地址
-
-	data.Set("transAmount", quickPay.TransAmount)
-	data.Set("cardInfo", hex.EncodeToString(this.aecEncryptECB(cardInfo, aecKey)))
-	data.Set("address", string(address))
-
-	fmt.Println("data: ", data)
-	postUrl := "http://183.62.24.78:3060/gateway/api/consumeTrans"
-	_, err = this.send(data.Encode(), postUrl)
-	return err
-}
-
-// 创建订单, 需要返回交易日期，订单号
-func (this *BocpayClient) TradeCreate(transAmount string) {
-	data := url.Values{}
 	// 固定参数，后面通过config统一配置
-	data.Set("version", "V1.0")
-	data.Set("transId", "106")
-	data.Set("accessNo", "20201804120000018121")
-	data.Set("signType", "RSA2")
-	data.Set("userId", "userId")			//当productId=1053时必填买家的支付宝唯一用户号
-	data.Set("storeId" , "NJ-001") 		//根据自身业务场景填写，商户门店编号
-	data.Set("terminalId", "NJ-T-001") 	//根据自身业务场景填写，商户机具编号
-	data.Set("productId", "1053") 		 //产品类型
-	data.Set("mchNo", "850780641001001") 	 //商户号
-	data.Set("goodsSubject", "测试交易商品") //商品订单标题
-	data.Set("notifyUrl", "后面加") 	// 异步通知地址
-	data.Set("webNotifyUrl", "后面加") //页面通知地址
+	data.Set("version", this.bocpayConfig.Version)
+	data.Set("accessNo", this.bocpayConfig.AccessNo)
+	data.Set("signType", this.bocpayConfig.SignType)
 
 	// 生成的参数
 	data.Set("requestNo", this.getRequestNo())
-	data.Set("transDate", "格式yyyyMMdd")	 //交易日期， 需要返回
-	data.Set("outTransNo", "outTransNo")		 //商户订单号，需保证商户端不重复， 需要返回
 
 	// 需要传入的参数
-	data.Set("transAmount", transAmount)
+	data.Set("billDate", bill)
 
 	// 添加签名
 	signature, _ := this.getSignature([]byte(data.Encode()))
 	data.Set("signature", signature)
 
 	// 发起请求
-	postUrl := "http://183.62.24.78:3060/gateway/api/downloadbill"
+	downloadBillRsp := new(DownloadBillRsp)
+	err := this.post(this.tradeUrl, data.Encode(), downloadBillRsp)
 
-	resultStr, _ := this.send(postUrl, data.Encode())
-
-	result := make(map[string]string, 10)
-	json.Unmarshal([]byte(resultStr), &result)
-	resSignature := ""
-	if value, ok := result["signature"]; ok {
-		resSignature = value
-		delete(result, "signature")
+	// base64解码
+	decodeBillData, err := base64.StdEncoding.DecodeString(downloadBillRsp.BillData)
+	
+	if nil != err {
+		return nil, err
 	}
-	fmt.Println("result: ", result)
+	downloadBillRsp.BillData = string(decodeBillData)
+	return downloadBillRsp, err
+}
 
-	res := url.Values{}
-	for key, value := range result {
-		res.Set(key, value)
-	}
+// 创建订单, 需要返回交易日期，订单号
+func (this *BocpayClient) TradeCreate(param *TradeCreate) (*TradeCreateRsp, error) {
+	data := url.Values{}
+	// 固定，一般不会改
+	data.Set("transId", "100")	// 交易类型
+	data.Set("productId", "1053") // 产品类型
 
-	err := this.verifySignature(this.platformPublicKey, []byte(res.Encode()), resSignature)
+	// 固定参数，后面通过config统一配置
+	data.Set("version", this.bocpayConfig.Version)
+	data.Set("accessNo", this.bocpayConfig.AccessNo)
+	data.Set("signType", this.bocpayConfig.SignType)
+	data.Set("mchNo", this.bocpayConfig.MchNo)
+	data.Set("userId", this.bocpayConfig.UserId)			// 当productId=1053时必填买家的支付宝唯一用户号
+	data.Set("storeId" , this.bocpayConfig.StoreId) 		// 根据自身业务场景填写，商户门店编号
+	data.Set("terminalId", this.bocpayConfig.TerminalId) 	// 根据自身业务场景填写，商户机具编号
 
-	if nil == err {
-		fmt.Println("success.")
-	}
 
-	// 返回，transDate， outTransNo，
+	// 生成的参数
+	data.Set("requestNo", this.getRequestNo())
+	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	 //交易日期
+
+	// 需要传入的参数
+	data.Set("transAmount", param.TransAmount)
+	data.Set("outTransNo", param.OutTransNo)		// 商户订单号，需保证商户端不重复， 需要返回
+	data.Set("goodsSubject", param.GoodsSubject)	// 商品订单标题
+	data.Set("notifyUrl", param.NotifyUrl) 		// 异步通知地址
+
+	// 添加签名
+	signature, _ := this.getSignature([]byte(data.Encode()))
+	data.Set("signature", signature)
+
+	// 发起请求
+	tradeCreateRsp := new(TradeCreateRsp)
+	err := this.post(this.tradeUrl, data.Encode(), tradeCreateRsp)
+
+	return tradeCreateRsp, err
 }
 
 // 订单查询， 需要返回订单信息
-func (this *BocpayClient) TradeQuery(oriTransDate, oriOutTransNo string) {
+func (this *BocpayClient) TradeQuery(param *TradeQuery) (*TradeQueryRsp, error) {
 	data := url.Values{}
-	// 固定参数，后面通过config统一配置
-	data.Set("version", "V1.0")
+	// 固定，一般不会改
 	data.Set("transId", "101")
-	data.Set("accessNo", "20201804120000018121")
-	data.Set("signType", "RSA2")
-	data.Set("mchNo", "850780641001001") 	 //商户号
-	data.Set("notifyUrl", "后面加") 	// 异步通知地址
-	data.Set("webNotifyUrl", "后面加") //页面通知地址
+
+	// 固定参数，后面通过config统一配置
+	data.Set("version", this.bocpayConfig.Version)
+	data.Set("accessNo", this.bocpayConfig.AccessNo)
+	data.Set("signType", this.bocpayConfig.SignType)
+	data.Set("mchNo", this.bocpayConfig.MchNo) 	 //商户号
 
 	// 生成的参数
 	data.Set("requestNo", this.getRequestNo())
 
 	// 传入参数
-	data.Set("oriTransDate", oriTransDate)		//原交易订单日期yyyyMMdd
-	data.Set("oriOutTransNo", oriOutTransNo)	//原商户交易订单号，二选一。
-	data.Set("refundNo", "refundNo")		//退款订单号，二选一。
+	data.Set("oriTransDate", param.OriTransData)		// 原交易订单日期yyyyMMdd
+	data.Set("notifyUrl", param.NotifyUrl) 			// 异步通知地址
+	if "" == param.OriOutTransNo {
+		data.Set("refundNo", param.RefundNo)			// 平台退款订单号。二选一， 退款选退款订单号
+	} else {
+		data.Set("oriOutTransNo", param.OriOutTransNo)	// 原商户交易订单号，二选一。
+	}
 
 	// 添加签名
 	signature, _ := this.getSignature([]byte(data.Encode()))
 	data.Set("signature", signature)
+
+	// 发起请求
+	tradeQueryRsp := new(TradeQueryRsp)
+	err := this.post(this.tradeUrl, data.Encode(), tradeQueryRsp)
+
+	return tradeQueryRsp, err
 }
 
 // 取消订单， 返回应答报文和错误信息
-func (this *BocpayClient) TradeCancel(oriTransDate, oriOutTransNo string) (string, error) {
+func (this *BocpayClient) TradeCancel(param *TradeCancel) (*TradeCancelRsp, error) {
 	data := url.Values{}
-	// 固定参数，后面通过config统一配置
-	data.Set("version", "V1.0")
+	// 固定，一般不会改
 	data.Set("transId", "103")
-	data.Set("accessNo", "20201804120000018121")
-	data.Set("signType", "RSA2")
-	data.Set("mchNo", "850780641001001") 	 //商户号
-	data.Set("notifyUrl", "后面加") 	// 异步通知地址
-	data.Set("webNotifyUrl", "后面加") //页面通知地址
+
+	// 固定参数，后面通过config统一配置
+	data.Set("version", this.bocpayConfig.Version)
+	data.Set("accessNo", this.bocpayConfig.AccessNo)
+	data.Set("signType", this.bocpayConfig.SignType)
+	data.Set("mchNo", this.bocpayConfig.MchNo) 	 //商户号
 
 	// 生成的参数
 	data.Set("requestNo", this.getRequestNo())
-	data.Set("transDate", "格式yyyyMMdd")	 //交易日期， 需要返回
-	data.Set("outTransNo", "outTransNo")		 //商户订单号，需保证商户端不重复， 需要返回
+	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	 //交易日期
 
 	// 传入参数
-	data.Set("oriTransDate", oriTransDate)		//原交易订单日期yyyyMMdd
-	data.Set("oriOutTransNo", oriOutTransNo)	//原商户交易订单号
+	data.Set("oriTransDate", param.OriTransData)	// 原交易订单日期yyyyMMdd
+	data.Set("oriOutTransNo", param.OriOutTransNo)	// 原商户交易订单号
+	data.Set("outTransNo", param.OutTransNo)		// 商户订单号，需保证商户端不重复， 需要返回
+	data.Set("notifyUrl", param.NotifyUrl) 		// 异步通知地址
 
 	// 添加签名
 	signature, _ := this.getSignature([]byte(data.Encode()))
 	data.Set("signature", signature)
 
-	return "", nil
+	// 发起请求
+	tradeCancelRsp := new(TradeCancelRsp)
+	err := this.post(this.tradeUrl, data.Encode(), tradeCancelRsp)
+
+	return tradeCancelRsp, err
 }
 
 // 关闭订单， 返回应答报文和错误信息
-func (this *BocpayClient) TradeClose(oriTransDate, oriOutTransNo string) (string, error) {
+func (this *BocpayClient) TradeClose(param *TradeCancel) (*TradeCloseRsp, error) {
 	data := url.Values{}
-	// 固定参数，后面通过config统一配置
-	data.Set("version", "V1.0")
+	// 固定，一般不会改
 	data.Set("transId", "104")
-	data.Set("accessNo", "20201804120000018121")
-	data.Set("signType", "RSA2")
-	data.Set("mchNo", "850780641001001") 	 //商户号
-	data.Set("notifyUrl", "后面加") 	// 异步通知地址
-	data.Set("webNotifyUrl", "后面加") //页面通知地址
+
+	// 固定参数，后面通过config统一配置
+	data.Set("version", this.bocpayConfig.Version)
+	data.Set("accessNo", this.bocpayConfig.AccessNo)
+	data.Set("signType", this.bocpayConfig.SignType)
+	data.Set("mchNo", this.bocpayConfig.MchNo)
 
 	// 生成的参数
 	data.Set("requestNo", this.getRequestNo())
-	data.Set("transDate", "格式yyyyMMdd")	 //交易日期， 需要返回
-	data.Set("outTransNo", "outTransNo")		 //商户订单号，需保证商户端不重复， 需要返回
+	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	 //交易日期
+
 
 	// 传入参数
-	data.Set("oriTransDate", oriTransDate)		//原交易订单日期yyyyMMdd
-	data.Set("oriOutTransNo", oriOutTransNo)	//原商户交易订单号
+	data.Set("oriTransDate", param.OriTransData)	// 原交易订单日期yyyyMMdd
+	data.Set("oriOutTransNo", param.OriOutTransNo)	// 原商户交易订单号
+	data.Set("outTransNo", param.OutTransNo)		// 商户订单号，需保证商户端不重复， 需要返回
+	data.Set("notifyUrl", param.NotifyUrl) 		// 异步通知地址
 
 	// 添加签名
 	signature, _ := this.getSignature([]byte(data.Encode()))
 	data.Set("signature", signature)
 
-	return "", nil
+	// 发起请求
+	tradeCloselRsp := new(TradeCloseRsp)
+	err := this.post(this.tradeUrl, data.Encode(), tradeCloselRsp)
+
+	return tradeCloselRsp, err
 }
 
 // 退款， 返回应答报文和错误信息
-func (this *BocpayClient) TradeRefund(oriTransDate, oriOutTransNo, transAmount, refundReason string) (string, error) {
+func (this *BocpayClient) TradeRefund(param *TradeRefund) (*TradeRefundRsp, error) {
 	data := url.Values{}
-	// 固定参数，后面通过config统一配置
-	data.Set("version", "V1.0")
+	// 固定，一般不会改
 	data.Set("transId", "102")
-	data.Set("accessNo", "20201804120000018121")
-	data.Set("signType", "RSA2")
-	data.Set("mchNo", "850780641001001") 	 //商户号
-	data.Set("notifyUrl", "后面加") 	// 异步通知地址
-	data.Set("webNotifyUrl", "后面加") //页面通知地址
+
+	// 固定参数，后面通过config统一配置
+	data.Set("version", this.bocpayConfig.Version)
+	data.Set("accessNo", this.bocpayConfig.AccessNo)
+	data.Set("signType", this.bocpayConfig.SignType)
+	data.Set("mchNo", this.bocpayConfig.MchNo)
 
 	// 生成的参数
 	data.Set("requestNo", this.getRequestNo())
-	data.Set("transDate", "格式yyyyMMdd")	 //交易日期， 需要返回
-	data.Set("outTransNo", "outTransNo")		 //商户订单号，需保证商户端不重复， 需要返回
+	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	 //交易日期
 
 	// 传入参数
-	data.Set("oriTransDate", oriTransDate)		//原交易订单日期yyyyMMdd
-	data.Set("oriOutTransNo", oriOutTransNo)	//原商户交易订单号
-	data.Set("transAmount", transAmount)	//退款金额
-	data.Set("refundReason", refundReason)	//退款原因
+	data.Set("oriTransDate", param.OriTransData)	// 原交易订单日期yyyyMMdd
+	data.Set("oriOutTransNo", param.OriOutTransNo)	// 原商户交易订单号
+	data.Set("transAmount", param.TransAmount)		// 退款金额
+	data.Set("refundReason", param.TransReason)	// 退款原因
+	data.Set("outTransNo", param.OutTransNo)		// 商户订单号，需保证商户端不重复， 需要返回
+	data.Set("notifyUrl", param.NotifyUrl) 		// 异步通知地址
 
 	// 添加签名
 	signature, _ := this.getSignature([]byte(data.Encode()))
 	data.Set("signature", signature)
 
-	return "", nil
-}
+	// 发起请求
+	tradeRefundRsp := new(TradeRefundRsp)
+	err := this.post(this.tradeUrl, data.Encode(), tradeRefundRsp)
 
-// 接收支付成功的异步通知， 不一定放在这里
-func (this *BocpayClient) TradeNotify() {
-	
+	return tradeRefundRsp, err
 }
 
 // 测试发布异步通知, 用来测试TradeNotify
@@ -398,14 +569,14 @@ func (this *BocpayClient) TestTradeNotify() {
 	data.Set("transId", "103")
 	data.Set("accessNo", "20201804120000018121")
 	data.Set("signType", "RSA2")
-	data.Set("mchNo", "850780641001001") 	 //商户号
-	data.Set("notifyUrl", "后面加") 	// 异步通知地址
-	data.Set("webNotifyUrl", "后面加") //页面通知地址
+	data.Set("mchNo", "850780641001001") 	// 商户号
+	data.Set("notifyUrl", "后面加") 		// 异步通知地址
+	data.Set("webNotifyUrl", "后面加") 	// 页面通知地址
 
 	// 生成的参数
 	data.Set("requestNo", this.getRequestNo())
-	data.Set("transDate", "格式yyyyMMdd")	 //交易日期， 需要返回
-	data.Set("outTransNo", "outTransNo")		 //商户订单号，需保证商户端不重复， 需要返回
+	data.Set("transDate", "格式yyyyMMdd")	// 交易日期， 需要返回
+	data.Set("outTransNo", "outTransNo")	// 商户订单号，需保证商户端不重复
 
 	data.Set("orderId", "20180529000121105200000272")
 	data.Set("payTime", "20180529160952")
@@ -417,8 +588,12 @@ func (this *BocpayClient) TestTradeNotify() {
 }
 
 // 加载后端似钥
-func (this *BocpayClient) LoadAccessPrivateKey(data []byte) error {
-	var err error
+func (this *BocpayClient) LoadAccessPrivateKey(input string) (err error) {
+	data, err := this.parseKey(input)
+	if err != nil {
+		return err
+	}
+
 	this.accessPrivateKey, err = x509.ParsePKCS1PrivateKey(data)
 	if err != nil {
 		return err
@@ -428,7 +603,12 @@ func (this *BocpayClient) LoadAccessPrivateKey(data []byte) error {
 }
 
 // 加载后端公钥
-func (this *BocpayClient) LoadAccessPublicKey(data []byte) error {
+func (this *BocpayClient) LoadAccessPublicKey(input string) (err error) {
+	data, err := this.parseKey(input)
+	if err != nil {
+		return err
+	}
+
 	pubKeyInterface, err := x509.ParsePKIXPublicKey(data)
 	if err != nil {
 		return err
@@ -439,7 +619,12 @@ func (this *BocpayClient) LoadAccessPublicKey(data []byte) error {
 }
 
 // 加载平台公钥
-func (this *BocpayClient) LoadPlatformPublicKey(data []byte) error {
+func (this *BocpayClient) LoadPlatformPublicKey(input string) (err error) {
+	data, err := this.parseKey(input)
+	if err != nil {
+		return err
+	}
+
 	pubKeyInterface, err := x509.ParsePKIXPublicKey(data)
 	if err != nil {
 		return err
@@ -494,8 +679,7 @@ func (this *BocpayClient) privateKeyDecrypt(priKey *rsa.PrivateKey, data string)
 
 // 获取流水线号
 func (this *BocpayClient) getRequestNo() string {
-	loc, _ := time.LoadLocation("Asia/Shanghai")
-	currentTime := time.Now().In(loc)
+	currentTime := time.Now().In(this.location)
 
 	//要加'.'才能获取到毫秒，拿到后再去掉
 	requestNo := time.Unix(0, currentTime.UnixNano()).Format("20060102150405.000")
@@ -505,77 +689,60 @@ func (this *BocpayClient) getRequestNo() string {
 }
 
 // 请求数据
-func (this *BocpayClient) send(postUrl string, data string) (string, error) {
-	client := &http.Client{}
+func (this *BocpayClient) post(postUrl string, data string, result interface{}) (err error) {
 	// 设置请求参数
 	req, err := http.NewRequest("POST", postUrl, strings.NewReader(data))
 	if nil != err {
-		return "", err
+		return err
 	}
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded;;charset=utf-8")
-	req.Header.Add("Connection", "close")
+	req.Header.Add("Content-Type", PostContentType)
+	req.Header.Add("Connection", PostConnection)
 
 	// 发起请求
-	rsp, err := client.Do(req)
+	rsp, err := this.httpClient.Do(req)
 	if nil != err {
-		return "", err
+		return err
 	}
 	defer rsp.Body.Close()
 
 	// 获取结果
 	body, err := ioutil.ReadAll(rsp.Body)
 	if nil != err {
-		return "", err
+		return err
 	}
-	return string(body), nil
+
+	// 公钥验证
+	unmarshalData := gjson.Parse(string(body))
+	if signature := unmarshalData.Get("signature"); signature.Exists() {
+		verifyData := url.Values{}
+		unmarshalData.ForEach(func(key, value gjson.Result) bool {
+			if key.String() != "signature" {
+				verifyData.Set(key.String(), value.String())
+			}
+			return true
+		})
+
+		err = this.verifySignature(this.platformPublicKey, []byte(verifyData.Encode()), signature.String())
+
+		// 暂时没拿到公钥，跳过
+		err = nil
+		if nil != err {
+			return err
+		}
+	}
+
+	// 解析结果
+	err = json.Unmarshal(body, result)
+	return err
 }
 
-// aec加密信息， 比如卡信息
-func (this *BocpayClient) aecEncryptECB(data, key []byte) []byte {
-	cipher, _ := aes.NewCipher(key)
-	length := (len(data) + aes.BlockSize) / aes.BlockSize
-	plain := make([]byte, length*aes.BlockSize)
-	copy(plain, data)
-	pad := byte(len(plain) - len(data))
-	for i := len(data); i < len(plain); i++ {
-		plain[i] = pad
-	}
-	encrypted := make([]byte, len(plain))
-	// 分组分块加密
-	for bs, be := 0, cipher.BlockSize(); bs <= len(data); bs, be = bs+cipher.BlockSize(), be+cipher.BlockSize() {
-		cipher.Encrypt(encrypted[bs:be], plain[bs:be])
-	}
-
-	return encrypted
-}
-
-// aec解密信息， 比如卡信息
-func (this *BocpayClient) aecDecryptECB(data, key []byte) []byte {
-	cipher, _ := aes.NewCipher(key)
-	decrypted := make([]byte, len(data))
-	//
-	for bs, be := 0, cipher.BlockSize(); bs < len(data); bs, be = bs+cipher.BlockSize(), be+cipher.BlockSize() {
-		cipher.Decrypt(decrypted[bs:be], data[bs:be])
-	}
-
-	trim := 0
-	if len(decrypted) > 0 {
-		trim = len(decrypted) - int(decrypted[len(decrypted)-1])
-	}
-
-	return decrypted[:trim]
-}
-
-// 临时读取，后期换成微服务config
-func getCertifyData(file string) ([]byte, error) {
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		fmt.Println("get privatekey failed!")
-	}
-
-	block, _ := pem.Decode(data)
+// 密钥解析
+func (this *BocpayClient) parseKey(input string) ([]byte, error) {
+	block, _ := pem.Decode([]byte(input))
 	if nil == block {
-		return base64.StdEncoding.DecodeString(string(data))
+		// 兼容没有-----BEGIN -----END的情况
+		data, err := base64.StdEncoding.DecodeString(input)
+		return data, err
 	}
 
 	return block.Bytes, nil

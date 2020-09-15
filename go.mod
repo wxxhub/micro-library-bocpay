@@ -39,4 +39,5 @@ require (
 	gorm.io/driver/mysql v0.2.9
 	gorm.io/gorm v0.2.19
 	gorm.io/plugin/prometheus v0.0.0-20200624125218-0004dad9faf5
+	github.com/tidwall/gjson v1.6.1
 )
