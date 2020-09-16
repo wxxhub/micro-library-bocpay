@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"github.com/micro/go-micro/v2/errors"
+	"errors"
 	"github.com/tidwall/gjson"
 	"io/ioutil"
 	"net/http"
@@ -201,7 +201,7 @@ type TradeRefundRsp struct {
 	TransDate		string `json:"transDate"`	 	// 订单日期，商户交易订单日期yyyyMMdd
 	OutTransNo		string `json:"outTransNo"`	 	// 商户订单号
 	TransAmount		string `json:"transAmount"`	 	// 交易金额
-	RefundReason	string `json:"refundReson"`	 	// 退货原因
+	RefundReason	string `json:"refundReson"`		// 退货原因
 	TransNo			string `json:"transNo"`			// 平台退款订单号
 	BankTradeNo		string `json:"bankTradeNo"`		// 银行订单号, 目前返回微信/支付宝渠道订单号
 	ReturnCode		string `json:"returnCode"`		// 网关应答码
@@ -226,7 +226,7 @@ func ConnectBocpay(srvName string, confName string) (*BocpayClient, error) {
 
 	conf, _, err := ConnectConfig(srvName, confName)
 	if err != nil {
-		return nil, errors.InternalServerError(srvName, "read bocpay config fail: %v", err.Error())
+		return nil, errors.New(srvName+" read bocpay config fail: "+err.Error())
 	}
 
 	config := new(BocpayConfig)
@@ -236,43 +236,43 @@ func ConnectBocpay(srvName string, confName string) (*BocpayClient, error) {
 
 	config.Version = conf.Get(srvName, confName, "version").String("")
 	if config.Version == "" {
-		return nil, errors.InternalServerError(srvName, "version is empty")
+		return nil, errors.New(srvName+", version is empty ")
 	}
 	config.AccessNo = conf.Get(srvName, confName, "accessNo").String("")
 	if config.AccessNo == "" {
-		return nil, errors.InternalServerError(srvName, "accessNo is empty")
+		return nil, errors.New(srvName+", accessNo is empty ")
 	}
 	config.SignType = conf.Get(srvName, confName, "signType").String("")
 	if config.SignType == "" {
-		return nil, errors.InternalServerError(srvName, "signType is empty")
+		return nil, errors.New(srvName+", signType is empty ")
 	}
 	config.UserId = conf.Get(srvName, confName, "userId").String("")
 	if config.UserId == "" {
-		return nil, errors.InternalServerError(srvName, "userId is empty")
+		return nil, errors.New(srvName+", userId is empty ")
 	}
 	config.StoreId = conf.Get(srvName, confName, "storeId").String("")
 	if config.StoreId == "" {
-		return nil, errors.InternalServerError(srvName, "storeId is empty")
+		return nil, errors.New(srvName+", storeId is empty ")
 	}
 	config.TerminalId = conf.Get(srvName, confName, "terminalId").String("")
 	if config.TerminalId == "" {
-		return nil, errors.InternalServerError(srvName, "terminalId is empty")
+		return nil, errors.New(srvName+", terminalId is empty ")
 	}
 	config.MchNo = conf.Get(srvName, confName, "mchNo").String("")
 	if config.MchNo == "" {
-		return nil, errors.InternalServerError(srvName, "mchNo is empty")
+		return nil, errors.New(srvName+", mchNo is empty ")
 	}
 	config.AccessPrvKey = conf.Get(srvName, confName, "access-prv-key").String("")
 	if config.AccessPrvKey == "" {
-		return nil, errors.InternalServerError(srvName, "access-prv-key is empty")
+		return nil, errors.New(srvName+", access-prv-key is empty ")
 	}
 	config.AccessPubKey = conf.Get(srvName, confName, "access-pub-key").String("")
 	if config.AccessPubKey == "" {
-		return nil, errors.InternalServerError(srvName, "access-pub-key is empty")
+		return nil, errors.New(srvName+", access-pub-key is empty ")
 	}
 	config.PlatformPubKey = conf.Get(srvName, confName, "platform-pub-key").String("")
 	if config.PlatformPubKey == "" {
-		return nil, errors.InternalServerError(srvName, "platform-pub-key is empty")
+		return nil, errors.New(srvName+", platform-pub-key is empty ")
 	}
 
 	isProduction := conf.Get(srvName, confName, "isProduction").Bool(false)
@@ -289,10 +289,9 @@ func New(config *BocpayConfig, isProduction bool) (client *BocpayClient, err err
 	client = new(BocpayClient)
 	client.isProduction = isProduction
 	client.bocpayConfig = config
-	client.httpClient = http.DefaultClient
+	client.httpClient 	= http.DefaultClient
 
 	client.location, err = time.LoadLocation("Asia/Chongqing")
-
 	if nil != err {
 		return nil, err
 	}
@@ -308,15 +307,15 @@ func New(config *BocpayConfig, isProduction bool) (client *BocpayClient, err err
 	}
 
 	// 加载Key
-	err = client.LoadAccessPrivateKey(config.AccessPrvKey)
+	err = client.loadAccessPrivateKey(config.AccessPrvKey)
 	if err != nil {
 		return nil, err
 	}
-	err = client.LoadAccessPublicKey(config.AccessPubKey)
+	err = client.loadAccessPublicKey(config.AccessPubKey)
 	if err != nil {
 		return nil, err
 	}
-	err = client.LoadPlatformPublicKey(config.PlatformPubKey)
+	err = client.loadPlatformPublicKey(config.PlatformPubKey)
 	if err != nil {
 		return nil, err
 	}
@@ -378,11 +377,8 @@ func (this *BocpayClient) DownloadBill(bill string) (*DownloadBillRsp, error) {
 
 	// base64解码
 	decodeBillData, err := base64.StdEncoding.DecodeString(downloadBillRsp.BillData)
-	
-	if nil != err {
-		return nil, err
-	}
 	downloadBillRsp.BillData = string(decodeBillData)
+
 	return downloadBillRsp, err
 }
 
@@ -400,7 +396,7 @@ func (this *BocpayClient) TradeCreate(param *TradeCreate) (*TradeCreateRsp, erro
 	data.Set("mchNo", this.bocpayConfig.MchNo)
 	data.Set("userId", this.bocpayConfig.UserId)			// 当productId=1053时必填买家的支付宝唯一用户号
 	data.Set("storeId" , this.bocpayConfig.StoreId) 		// 根据自身业务场景填写，商户门店编号
-	data.Set("terminalId", this.bocpayConfig.TerminalId) 	// 根据自身业务场景填写，商户机具编号
+	data.Set("terminalId", this.bocpayConfig.TerminalId)	// 根据自身业务场景填写，商户机具编号
 
 
 	// 生成的参数
@@ -411,7 +407,7 @@ func (this *BocpayClient) TradeCreate(param *TradeCreate) (*TradeCreateRsp, erro
 	data.Set("transAmount", param.TransAmount)
 	data.Set("outTransNo", param.OutTransNo)		// 商户订单号，需保证商户端不重复， 需要返回
 	data.Set("goodsSubject", param.GoodsSubject)	// 商品订单标题
-	data.Set("notifyUrl", param.NotifyUrl) 		// 异步通知地址
+	data.Set("notifyUrl", param.NotifyUrl)			// 异步通知地址
 
 	// 添加签名
 	signature, _ := this.getSignature([]byte(data.Encode()))
@@ -493,7 +489,7 @@ func (this *BocpayClient) TradeCancel(param *TradeCancel) (*TradeCancelRsp, erro
 }
 
 // 关闭订单， 返回应答报文和错误信息
-func (this *BocpayClient) TradeClose(param *TradeCancel) (*TradeCloseRsp, error) {
+func (this *BocpayClient) TradeClose(param *TradeClose) (*TradeCloseRsp, error) {
 	data := url.Values{}
 	// 固定，一般不会改
 	data.Set("transId", "104")
@@ -561,21 +557,37 @@ func (this *BocpayClient) TradeRefund(param *TradeRefund) (*TradeRefundRsp, erro
 	return tradeRefundRsp, err
 }
 
+// 异步通知验证
+func (this *BocpayClient) VerifyNotify(request string) error {
+	unmarshalRequest := gjson.Parse(request)
+	requestContent := url.Values{}
+
+	if signature := unmarshalRequest.Get("signature"); signature.Exists() {
+		unmarshalRequest.ForEach(func(key, value gjson.Result) bool {
+			if key.String() != "signature" {
+				requestContent.Set(key.String(), value.String())
+			}
+			return true
+		})
+		return this.verifySignature(this.platformPublicKey, []byte(requestContent.Encode()), signature.String())
+	}
+
+	return errors.New("verify notify failed")
+}
+
 // 测试发布异步通知, 用来测试TradeNotify
 func (this *BocpayClient) TestTradeNotify() {
 	data := url.Values{}
-	// 固定参数，后面通过config统一配置
+
+	data.Set("transId", "100")
 	data.Set("version", "V1.0")
-	data.Set("transId", "103")
 	data.Set("accessNo", "20201804120000018121")
 	data.Set("signType", "RSA2")
 	data.Set("mchNo", "850780641001001") 	// 商户号
-	data.Set("notifyUrl", "后面加") 		// 异步通知地址
-	data.Set("webNotifyUrl", "后面加") 	// 页面通知地址
+	data.Set("notifyUrl", "test") 		// 异步通知地址
 
-	// 生成的参数
 	data.Set("requestNo", this.getRequestNo())
-	data.Set("transDate", "格式yyyyMMdd")	// 交易日期， 需要返回
+	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	// 交易日期， 需要返回
 	data.Set("outTransNo", "outTransNo")	// 商户订单号，需保证商户端不重复
 
 	data.Set("orderId", "20180529000121105200000272")
@@ -587,8 +599,9 @@ func (this *BocpayClient) TestTradeNotify() {
 	data.Set("payNo", "payNo") // 平台支付订单号
 }
 
-// 加载后端似钥
-func (this *BocpayClient) LoadAccessPrivateKey(input string) (err error) {
+// 通用接口
+// 加载后端私钥
+func (this *BocpayClient) loadAccessPrivateKey(input string) (err error) {
 	data, err := this.parseKey(input)
 	if err != nil {
 		return err
@@ -603,7 +616,7 @@ func (this *BocpayClient) LoadAccessPrivateKey(input string) (err error) {
 }
 
 // 加载后端公钥
-func (this *BocpayClient) LoadAccessPublicKey(input string) (err error) {
+func (this *BocpayClient) loadAccessPublicKey(input string) (err error) {
 	data, err := this.parseKey(input)
 	if err != nil {
 		return err
@@ -619,7 +632,7 @@ func (this *BocpayClient) LoadAccessPublicKey(input string) (err error) {
 }
 
 // 加载平台公钥
-func (this *BocpayClient) LoadPlatformPublicKey(input string) (err error) {
+func (this *BocpayClient) loadPlatformPublicKey(input string) (err error) {
 	data, err := this.parseKey(input)
 	if err != nil {
 		return err
@@ -634,7 +647,6 @@ func (this *BocpayClient) LoadPlatformPublicKey(input string) (err error) {
 	return nil
 }
 
-// 通用接口
 // 后端私钥签名
 func (this *BocpayClient) getSignature(data []byte) (string, error) {
 	hash := sha256.New()
