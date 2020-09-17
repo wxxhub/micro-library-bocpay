@@ -69,28 +69,28 @@ type TradeCreate struct {
 }
 
 type TradeQuery struct {
-	OriTransData  string // 原订单日期yyyyMMdd
+	OriTransDate  string // 原订单日期yyyyMMdd
 	OriOutTransNo string // 原商户交易订单号。二选一
 	RefundNo	  string // 平台退款订单号。二选一， 退款选退款订单号
 	NotifyUrl 	  string // 异步通知地址
 }
 
 type TradeCancel struct {
-	OriTransData  string // 原订单日期yyyyMMdd
+	OriTransDate  string // 原订单日期yyyyMMdd
 	OriOutTransNo string // 原商户交易订单号
 	OutTransNo    string // 订单号
 	NotifyUrl 	  string // 异步通知地址
 }
 
 type TradeClose struct {
-	OriTransData  string // 原订单日期yyyyMMdd
+	OriTransDate  string // 原订单日期yyyyMMdd
 	OriOutTransNo string // 原商户交易订单号
 	OutTransNo    string // 订单号
 	NotifyUrl 	  string // 异步通知地址
 }
 
 type TradeRefund struct {
-	OriTransData  string // 原订单日期yyyyMMdd
+	OriTransDate  string // 原订单日期yyyyMMdd
 	OriOutTransNo string // 原商户交易订单号
 	TransAmount	  string // 退款金额
 	TransReason	  string // 退款原因
@@ -368,7 +368,7 @@ func (this *Client) TradeQuery(param *TradeQuery) (*TradeQueryRsp, error) {
 	data.Set("requestNo", this.getRequestNo())
 
 	// 传入参数
-	data.Set("oriTransDate", param.OriTransData)		// 原交易订单日期yyyyMMdd
+	data.Set("oriTransDate", param.OriTransDate)		// 原交易订单日期yyyyMMdd
 	data.Set("notifyUrl", param.NotifyUrl) 			// 异步通知地址
 	if "" == param.OriOutTransNo {
 		data.Set("refundNo", param.RefundNo)			// 平台退款订单号。二选一， 退款选退款订单号
@@ -404,7 +404,7 @@ func (this *Client) TradeCancel(param *TradeCancel) (*TradeCancelRsp, error) {
 	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	 //交易日期
 
 	// 传入参数
-	data.Set("oriTransDate", param.OriTransData)	// 原交易订单日期yyyyMMdd
+	data.Set("oriTransDate", param.OriTransDate)	// 原交易订单日期yyyyMMdd
 	data.Set("oriOutTransNo", param.OriOutTransNo)	// 原商户交易订单号
 	data.Set("outTransNo", param.OutTransNo)		// 商户订单号，需保证商户端不重复， 需要返回
 	data.Set("notifyUrl", param.NotifyUrl) 		// 异步通知地址
@@ -438,7 +438,7 @@ func (this *Client) TradeClose(param *TradeClose) (*TradeCloseRsp, error) {
 
 
 	// 传入参数
-	data.Set("oriTransDate", param.OriTransData)	// 原交易订单日期yyyyMMdd
+	data.Set("oriTransDate", param.OriTransDate)	// 原交易订单日期yyyyMMdd
 	data.Set("oriOutTransNo", param.OriOutTransNo)	// 原商户交易订单号
 	data.Set("outTransNo", param.OutTransNo)		// 商户订单号，需保证商户端不重复， 需要返回
 	data.Set("notifyUrl", param.NotifyUrl) 		// 异步通知地址
@@ -471,7 +471,7 @@ func (this *Client) TradeRefund(param *TradeRefund) (*TradeRefundRsp, error) {
 	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	 //交易日期
 
 	// 传入参数
-	data.Set("oriTransDate", param.OriTransData)	// 原交易订单日期yyyyMMdd
+	data.Set("oriTransDate", param.OriTransDate)	// 原交易订单日期yyyyMMdd
 	data.Set("oriOutTransNo", param.OriOutTransNo)	// 原商户交易订单号
 	data.Set("transAmount", param.TransAmount)		// 退款金额
 	data.Set("refundReason", param.TransReason)	// 退款原因
