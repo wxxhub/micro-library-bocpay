@@ -490,21 +490,16 @@ func (this *Client) TradeRefund(param *TradeRefund) (*TradeRefundRsp, error) {
 }
 
 // 异步通知验证
-func (this *Client) VerifyNotify(request string) error {
-	unmarshalRequest := gjson.Parse(request)
-	requestContent := url.Values{}
+func (this *Client) VerifyNotify(data url.Values) (bool, error) {
 
-	if signature := unmarshalRequest.Get("signature"); signature.Exists() {
-		unmarshalRequest.ForEach(func(key, value gjson.Result) bool {
-			if key.String() != "signature" {
-				requestContent.Set(key.String(), value.String())
-			}
-			return true
-		})
-		return this.verifySignature(this.platformPublicKey, []byte(requestContent.Encode()), signature.String())
+	signature := data.Get("signature")
+
+	if "" == signature {
+		return false, errors.New("no signature")
 	}
+	data.Del("signature")
 
-	return errors.New("verify notify failed")
+	return true, this.verifySignature(this.platformPublicKey, []byte(data.Encode()), signature)
 }
 
 // 测试发布异步通知, 用来测试TradeNotify
