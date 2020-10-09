@@ -62,6 +62,7 @@ type Client struct {
 }
 
 type TradeCreate struct {
+	RequestNo	 string // 流水号
 	TransAmount  string // 交易额
 	OutTransNo   string // 订单号
 	GoodsSubject string // 商品订单标题
@@ -69,6 +70,7 @@ type TradeCreate struct {
 }
 
 type TradeQuery struct {
+	RequestNo	  string // 流水号
 	OriTransDate  string // 原订单日期yyyyMMdd
 	OriOutTransNo string // 原商户交易订单号。二选一
 	RefundNo	  string // 平台退款订单号。二选一， 退款选退款订单号
@@ -76,6 +78,7 @@ type TradeQuery struct {
 }
 
 type TradeCancel struct {
+	RequestNo	  string // 流水号
 	OriTransDate  string // 原订单日期yyyyMMdd
 	OriOutTransNo string // 原商户交易订单号
 	OutTransNo    string // 订单号
@@ -83,6 +86,7 @@ type TradeCancel struct {
 }
 
 type TradeClose struct {
+	RequestNo	  string // 流水号
 	OriTransDate  string // 原订单日期yyyyMMdd
 	OriOutTransNo string // 原商户交易订单号
 	OutTransNo    string // 订单号
@@ -90,12 +94,18 @@ type TradeClose struct {
 }
 
 type TradeRefund struct {
+	RequestNo	  string // 流水号
 	OriTransDate  string // 原订单日期yyyyMMdd
 	OriOutTransNo string // 原商户交易订单号
 	TransAmount	  string // 退款金额
 	TransReason	  string // 退款原因
 	OutTransNo    string // 订单号
 	NotifyUrl 	  string // 异步通知地址
+}
+
+type DownloadBill struct {
+	RequestNo	string // 流水号
+	Bill		string // 订单号
 }
 
 type PromotionDetail struct {
@@ -283,7 +293,7 @@ func (this *Client) Test(item int)  {
 }
 
 // 下载对账单
-func (this *Client) DownloadBill(bill string) (*DownloadBillRsp, error) {
+func (this *Client) DownloadBill(param *DownloadBill) (*DownloadBillRsp, error) {
 	data := url.Values{}
 	// 固定，一般不会改
 	data.Set("transId", "105")
@@ -293,11 +303,9 @@ func (this *Client) DownloadBill(bill string) (*DownloadBillRsp, error) {
 	data.Set("accessNo", this.config.AccessNo)
 	data.Set("signType", this.config.SignType)
 
-	// 生成的参数
-	data.Set("requestNo", this.getRequestNo())
-
 	// 需要传入的参数
-	data.Set("billDate", bill)
+	data.Set("requestNo", param.RequestNo)			// 流水号
+	data.Set("billDate", param.Bill)
 
 	// 添加签名
 	signature, _ := this.getSignature([]byte(data.Encode()))
@@ -332,10 +340,10 @@ func (this *Client) TradeCreate(param *TradeCreate) (*TradeCreateRsp, error) {
 
 
 	// 生成的参数
-	data.Set("requestNo", this.getRequestNo())
 	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	 //交易日期
 
 	// 需要传入的参数
+	data.Set("requestNo", param.RequestNo)			// 流水号
 	data.Set("transAmount", param.TransAmount)
 	data.Set("outTransNo", param.OutTransNo)		// 商户订单号，需保证商户端不重复， 需要返回
 	data.Set("goodsSubject", param.GoodsSubject)	// 商品订单标题
@@ -364,10 +372,8 @@ func (this *Client) TradeQuery(param *TradeQuery) (*TradeQueryRsp, error) {
 	data.Set("signType", this.config.SignType)
 	data.Set("mchNo", this.config.MchNo) 	 //商户号
 
-	// 生成的参数
-	data.Set("requestNo", this.getRequestNo())
-
 	// 传入参数
+	data.Set("requestNo", param.RequestNo)			// 流水号
 	data.Set("oriTransDate", param.OriTransDate)		// 原交易订单日期yyyyMMdd
 	data.Set("notifyUrl", param.NotifyUrl) 			// 异步通知地址
 	if "" == param.OriOutTransNo {
@@ -400,10 +406,10 @@ func (this *Client) TradeCancel(param *TradeCancel) (*TradeCancelRsp, error) {
 	data.Set("mchNo", this.config.MchNo) 	 //商户号
 
 	// 生成的参数
-	data.Set("requestNo", this.getRequestNo())
 	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	 //交易日期
 
 	// 传入参数
+	data.Set("requestNo", param.RequestNo)			// 流水号
 	data.Set("oriTransDate", param.OriTransDate)	// 原交易订单日期yyyyMMdd
 	data.Set("oriOutTransNo", param.OriOutTransNo)	// 原商户交易订单号
 	data.Set("outTransNo", param.OutTransNo)		// 商户订单号，需保证商户端不重复， 需要返回
@@ -433,11 +439,11 @@ func (this *Client) TradeClose(param *TradeClose) (*TradeCloseRsp, error) {
 	data.Set("mchNo", this.config.MchNo)
 
 	// 生成的参数
-	data.Set("requestNo", this.getRequestNo())
 	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	 //交易日期
 
 
 	// 传入参数
+	data.Set("requestNo", param.RequestNo)			// 流水号
 	data.Set("oriTransDate", param.OriTransDate)	// 原交易订单日期yyyyMMdd
 	data.Set("oriOutTransNo", param.OriOutTransNo)	// 原商户交易订单号
 	data.Set("outTransNo", param.OutTransNo)		// 商户订单号，需保证商户端不重复， 需要返回
@@ -467,10 +473,10 @@ func (this *Client) TradeRefund(param *TradeRefund) (*TradeRefundRsp, error) {
 	data.Set("mchNo", this.config.MchNo)
 
 	// 生成的参数
-	data.Set("requestNo", this.getRequestNo())
 	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	 //交易日期
 
 	// 传入参数
+	data.Set("requestNo", param.RequestNo)			// 流水号
 	data.Set("oriTransDate", param.OriTransDate)	// 原交易订单日期yyyyMMdd
 	data.Set("oriOutTransNo", param.OriOutTransNo)	// 原商户交易订单号
 	data.Set("transAmount", param.TransAmount)		// 退款金额
@@ -513,7 +519,7 @@ func (this *Client) TestTradeNotify() {
 	data.Set("mchNo", "850780641001001") 	// 商户号
 	data.Set("notifyUrl", "test") 		// 异步通知地址
 
-	data.Set("requestNo", this.getRequestNo())
+	data.Set("requestNo", "")
 	data.Set("transDate", time.Now().In(this.location).Format(TimeFormat))	// 交易日期， 需要返回
 	data.Set("outTransNo", "outTransNo")	// 商户订单号，需保证商户端不重复
 
@@ -614,17 +620,6 @@ func (this *Client) privateKeyDecrypt(priKey *rsa.PrivateKey, data string) (stri
 	}
 
 	return string(decryData), nil
-}
-
-// 获取流水线号
-func (this *Client) getRequestNo() string {
-	currentTime := time.Now().In(this.location)
-
-	//要加'.'才能获取到毫秒，拿到后再去掉
-	requestNo := time.Unix(0, currentTime.UnixNano()).Format("20060102150405.000")
-	requestNo = strings.Replace(requestNo, ".", "", -1)
-
-	return requestNo
 }
 
 // 请求数据
